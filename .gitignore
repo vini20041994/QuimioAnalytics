@@ -1,15 +1,5 @@
 # ==========================================
-# 1. ARQUIVOS DE DADOS (O mais importante!)
-# ==========================================
-# Evita subir os dados brutos e planilhas do IST Ambiental para o GitHub público
-*.csv
-*.xlsx
-*.xls
-data/
-datasets/
-
-# ==========================================
-# 2. PYTHON E AMBIENTES VIRTUAIS
+# 1. PYTHON E AMBIENTES VIRTUAIS
 # ==========================================
 # Ignora arquivos compilados que o Python gera sozinho
 __pycache__/
@@ -24,13 +14,13 @@ env/
 .env/
 
 # ==========================================
-# 3. JUPYTER NOTEBOOKS E FERRAMENTAS DE DADOS
+# 2. JUPYTER NOTEBOOKS E FERRAMENTAS DE DADOS
 # ==========================================
 # Ignora os checkpoints automáticos do Jupyter
 .ipynb_checkpoints/
 
 # ==========================================
-# 4. VARIÁVEIS DE AMBIENTE E SEGURANÇA
+# 3. VARIÁVEIS DE AMBIENTE E SEGURANÇA
 # ==========================================
 # NUNCA suba senhas, credenciais de banco ou chaves de API
 .env
@@ -38,7 +28,7 @@ env/
 secrets.json
 
 # ==========================================
-# 5. CONFIGURAÇÕES DE IDES E SISTEMA OPERACIONAL
+# 4. CONFIGURAÇÕES DE IDES E SISTEMA OPERACIONAL
 # ==========================================
 # Configurações do VSCode e afins
 .vscode/
