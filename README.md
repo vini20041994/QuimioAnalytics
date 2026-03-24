@@ -1,11 +1,11 @@
-# QuimioAnalytics 🧪
+# QuimioAnalytics 
 
 > Banco de Dados Unificado para o **Instituto SENAI de Tecnologia Ambiental (IST Ambiental)**  
 > Projeto Aplicado II · Ciência de Dados e Inteligência Artificial · SENAI Florianópolis · 2026/1
 
 ---
 
-## 📌 Sobre o Projeto
+##  Sobre o Projeto
 
 O IST Ambiental gera grandes volumes de dados analíticos por meio de seu software interno — planilhas de **Identificação** (38.011 linhas, 1.063 features únicas) e **Abundância** (1.104 features, 12 replicatas dinâmicas). Esses dados precisam ser integrados entre si e enriquecidos com bibliotecas químicas públicas (PubChem, ChEBI, HMDB, FooDB) para viabilizar a priorização de compostos candidatos via ranking **Top 5**.
 
@@ -13,7 +13,7 @@ Este repositório contém o modelo lógico, schema físico e scripts de ETL do b
 
 ---
 
-## 🏗️ Arquitetura em Camadas
+##  Arquitetura em Camadas
 
 O banco é dividido em três schemas lógicos no PostgreSQL:
 
@@ -43,7 +43,7 @@ Fontes → [stg] → ETL → [core] → Match → [ref] → Top 5 / Dashboard
 
 ---
 
-## 🛠️ Tecnologias
+##  Tecnologias
 
 | Camada | Tecnologia |
 |--------|------------|
@@ -54,7 +54,7 @@ Fontes → [stg] → ETL → [core] → Match → [ref] → Top 5 / Dashboard
 
 ---
 
-## 📂 Estrutura do Repositório
+##  Estrutura do Repositório
 ```
 quimioanalytics/
 ├── sql/
@@ -72,7 +72,7 @@ quimioanalytics/
 
 ---
 
-## ⚙️ Como Executar
+##  Como Executar
 
 ### Pré-requisitos
 - PostgreSQL 15+
@@ -103,7 +103,7 @@ python etl/fetch_pubchem.py          # stg.pubchem_compound_raw → ref.external
 
 ---
 
-## 📊 Dados de Referência (MVP Parcial)
+##  Dados de Referência (MVP Parcial)
 
 | Fonte | Volume observado |
 |-------|-----------------|
@@ -115,7 +115,7 @@ python etl/fetch_pubchem.py          # stg.pubchem_compound_raw → ref.external
 
 ---
 
-## ✅ Status das Entregas
+##  Status das Entregas
 
 - [x] Diagnóstico empírico das fontes do IST
 - [x] Mapa lógico dos dados (MER) com entidades e cardinalidades
@@ -130,7 +130,7 @@ python etl/fetch_pubchem.py          # stg.pubchem_compound_raw → ref.external
 
 ---
 
-## 👥 Equipe
+##  Equipe
 
 | Membro | Frente principal |
 |--------|-----------------|
