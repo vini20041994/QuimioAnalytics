@@ -1,4 +1,7 @@
-# QuimioAnalytics 
+<p align="center">
+  <img width="600" height="600" src="https://github.com/Gilasexe/QuimioAnalytics/blob/main/public/3%20(1).png?raw=true" alt="Logo da Panteão Pizzaria">
+</p>
+
 
 > Banco de Dados Unificado para o **Instituto SENAI de Tecnologia Ambiental (IST Ambiental)**  
 > Projeto Aplicado II · Ciência de Dados e Inteligência Artificial · SENAI Florianópolis · 2026/1
