@@ -262,9 +262,197 @@ CREATE INDEX IF NOT EXISTS idx_ref_match_external_compound ON ref.candidate_matc
 -- Carga inicial recomendada de fontes externas
 INSERT INTO ref.external_source (source_name, source_type, base_url, notes)
 VALUES
-    ('PubChem', 'quimica', 'https://pubchem.ncbi.nlm.nih.gov/', 'Fonte publica prioritaria para identificadores e propriedades'),
-    ('HMDB', 'metabolitos', 'https://hmdb.ca/', 'Fonte orientada a metabolitos e taxonomia'),
-    ('ChEBI', 'ontologia', 'https://www.ebi.ac.uk/chebi/', 'Fonte orientada a ontologia e classificacao quimica'),
-    ('FooDB', 'alimentos', 'https://foodb.ca/', 'Fonte complementar para origem alimentar e contexto biologico'),
-    ('CatalogoCuradoIST', 'interna', NULL, 'Catálogo semantico interno a partir do arquivo Compostos_final.xlsx')
+
+('PubChem_PUG_REST',
+ 'api_quimica',
+ 'https://pubchem.ncbi.nlm.nih.gov/rest/pug/',
+ 'API REST oficial para propriedades, CID, SMILES, InChIKey'),
+
+('HMDB_XML',
+ 'api_metabolitos',
+ 'https://hmdb.ca/downloads',
+ 'Dump XML completo com metabolitos, biospecimen e pathways'),
+
+('ChEBI_OLS_API',
+ 'api_ontologia',
+ 'https://www.ebi.ac.uk/ols4/api/',
+ 'Ontology Lookup Service para hierarquia química'),
+
+('FooDB_CSV',
+ 'api_alimentos',
+ 'https://foodb.ca/downloads',
+ 'Dataset alimentar com origem biológica e compostos dietéticos'),
+
+('KEGG_Pathway',
+ 'api_pathway',
+ 'https://rest.kegg.jp/',
+ 'Mapeamento de vias metabólicas'),
+
+('SMPDB_Pathway',
+ 'api_pathway',
+ 'https://smpdb.ca/',
+ 'Small Molecule Pathway Database para metabolômica'),
+
+('ChemSpider_API',
+ 'api_quimica',
+ 'http://www.chemspider.com/',
+ 'Cross-reference químico adicional baseado em InChIKey')
+
 ON CONFLICT (source_name) DO NOTHING;
+
+-- Tabela de anotações para selecionar candidatos e registrar evidências adicionais
+
+CREATE TABLE core.feature_annotation (
+    annotation_id BIGSERIAL PRIMARY KEY,
+
+    feature_id BIGINT NOT NULL
+        REFERENCES core.feature(feature_id),
+
+    external_compound_id BIGINT NOT NULL
+        REFERENCES ref.external_compound(external_compound_id),
+
+    annotation_level VARCHAR(40),
+
+    annotation_source VARCHAR(80),
+
+    confidence_score NUMERIC(10,6),
+
+    is_primary BOOLEAN DEFAULT FALSE,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Adicionar suporte explicito ao rank de candidatos para facilitar seleção de top-N
+
+ALTER TABLE ref.candidate_match
+ADD COLUMN match_rank_global INTEGER;
+
+-- Tabela de linking universal entre identificadores quimicos para facilitar unificacao e consulta
+
+CREATE TABLE ref.compound_cross_reference (
+
+    crossref_id BIGSERIAL PRIMARY KEY,
+
+    external_compound_id BIGINT
+        REFERENCES ref.external_compound(external_compound_id),
+
+    source_name VARCHAR(60),
+
+    accession VARCHAR(120),
+
+    evidence_level VARCHAR(40)
+);
+
+-- Tabela suporte explícito para origem biológica do composto
+
+CREATE TABLE ref.biological_origin (
+
+    origin_id BIGSERIAL PRIMARY KEY,
+
+    external_compound_id BIGINT
+        REFERENCES ref.external_compound(external_compound_id),
+
+    organism_name VARCHAR(255),
+
+    organism_taxon_id BIGINT
+        REFERENCES ref.taxonomy_node(taxon_id),
+
+    tissue VARCHAR(120),
+
+    biospecimen VARCHAR(120)
+);
+
+-- Tabela pathway para registrar associações entre compostos e vias metabólicas 
+
+CREATE TABLE ref.pathway (
+
+    pathway_id BIGSERIAL PRIMARY KEY,
+
+    source_id BIGINT
+        REFERENCES ref.external_source(source_id),
+
+    external_pathway_id VARCHAR(120),
+
+    pathway_name TEXT
+);
+
+-- Tabela relacional 
+
+CREATE TABLE ref.compound_pathway (
+
+    compound_pathway_id BIGSERIAL PRIMARY KEY,
+
+    external_compound_id BIGINT
+        REFERENCES ref.external_compound(external_compound_id),
+
+    pathway_id BIGINT
+        REFERENCES ref.pathway(pathway_id)
+);
+
+-- Ajuste importante no core.feature: adicionar ionization_mode e adduct
+
+ALTER TABLE core.feature
+ADD COLUMN ionization_mode VARCHAR(20);
+
+ALTER TABLE core.feature
+ADD COLUMN adduct VARCHAR(40);
+
+-- Tabela para integração  automática com APIs
+
+CREATE TABLE ref.external_import_log (
+
+    import_id BIGSERIAL PRIMARY KEY,
+
+    source_id BIGINT
+        REFERENCES ref.external_source(source_id),
+
+    import_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    records_imported INTEGER,
+
+    import_status VARCHAR(40)
+);
+
+-- Índices adicionais para otimizar consultas de matching e unificação
+
+CREATE INDEX IF NOT EXISTS idx_feature_annotation_feature
+ON core.feature_annotation (feature_id);
+
+CREATE INDEX IF NOT EXISTS idx_feature_annotation_external_compound
+ON core.feature_annotation (external_compound_id);
+
+CREATE INDEX IF NOT EXISTS idx_feature_annotation_primary
+ON core.feature_annotation (is_primary);
+
+CREATE INDEX IF NOT EXISTS idx_crossref_external_compound
+ON ref.compound_cross_reference (external_compound_id);
+
+CREATE INDEX IF NOT EXISTS idx_crossref_source_name
+ON ref.compound_cross_reference (source_name);
+
+CREATE INDEX IF NOT EXISTS idx_crossref_accession
+ON ref.compound_cross_reference (accession);
+
+CREATE INDEX IF NOT EXISTS idx_bio_origin_compound
+ON ref.biological_origin (external_compound_id);
+
+CREATE INDEX IF NOT EXISTS idx_bio_origin_taxon
+ON ref.biological_origin (organism_taxon_id);
+
+CREATE INDEX IF NOT EXISTS idx_bio_origin_tissue
+ON ref.biological_origin (tissue);
+
+CREATE INDEX IF NOT EXISTS idx_pathway_source
+ON ref.pathway (source_id);
+
+CREATE INDEX IF NOT EXISTS idx_pathway_external_id
+ON ref.pathway (external_pathway_id);
+
+CREATE INDEX IF NOT EXISTS idx_import_log_source
+ON ref.external_import_log (source_id);
+
+CREATE INDEX IF NOT EXISTS idx_import_log_date
+ON ref.external_import_log (import_date);
+
+CREATE INDEX IF NOT EXISTS idx_import_log_status
+ON ref.external_import_log (import_status);
