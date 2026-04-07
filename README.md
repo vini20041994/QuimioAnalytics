@@ -75,6 +75,19 @@ quimioanalytics/
 
 ---
 
+##  Regras de Negócio — Replicatas
+
+### Agregação de Amostras (1.1 e 1.2)
+Para replicatas biológicas (amostras 1.1 e 1.2), foi escolhida a **OPÇÃO A: Agregar (média)** utilizando `df.groupby('composto').mean()`. Esta abordagem é recomendada para heurística probabilística, pois:
+
+- **Consistência**: Maior consistência entre replicatas aumenta a confiança do modelo de ranking.
+- **Redução de Dimensionalidade**: Simplifica o dataset sem perda significativa de informação estatística.
+- **Robustez**: A média é menos sensível a outliers individuais comparada a manter valores separados.
+
+A alternativa (OPÇÃO B: manter separadas como dimensões distintas) seria implementada com uma coluna extra 'tipo_replicata', mas resultaria em maior complexidade analítica e potencial overfitting no modelo.
+
+---
+
 ##  Como Executar
 
 ### Pré-requisitos

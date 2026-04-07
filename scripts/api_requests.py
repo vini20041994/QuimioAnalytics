@@ -1,6 +1,6 @@
 import requests
-import pandas as pd
 import time
+import xml.etree.ElementTree as ET
 
 
 ##############################
@@ -9,14 +9,28 @@ import time
 
 def pubchem_data(nome):
 
-    url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{nome}/property/MolecularFormula,ExactMass,MolecularWeight,InChIKey,CanonicalSMILES/JSON"
+    url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{nome}/property/MolecularFormula,ExactMass,MolecularWeight,InChIKey,CanonicalSMILES,CID/JSON"
 
-    r = requests.get(url)
+    r = requests.get(url, timeout=10)
 
     if r.status_code != 200:
         return {}
 
     props = r.json()["PropertyTable"]["Properties"][0]
+
+    try:
+        synonyms_url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{props.get('CID')}/synonyms/JSON"
+        syn_r = requests.get(synonyms_url, timeout=10)
+
+        if syn_r.status_code == 200:
+            syn_data = syn_r.json()
+
+            synonyms = syn_data["InformationList"]["Information"][0].get("Synonym", [])
+
+            props["Synonyms"] = synonyms[:5]
+
+    except:
+        pass
 
     return props
 
@@ -34,6 +48,7 @@ def buscar_chebi(nome):
     docs = r["response"]["docs"]
 
     if docs:
+
         return docs[0]["obo_id"]
 
     return None
@@ -48,6 +63,7 @@ def obter_classificacao_chebi(chebi_id):
     r = requests.get(url)
 
     if r.status_code != 200:
+
         return {}
 
     dados = r.json()
@@ -62,22 +78,18 @@ def obter_classificacao_chebi(chebi_id):
 
                 classes.append(item["label"])
 
-    classificacao = {}
+    return {
 
-    if len(classes) >= 1:
-        classificacao["Subclass"] = classes[0]
-
-    if len(classes) >= 2:
-        classificacao["Class"] = classes[1]
-
-    if len(classes) >= 3:
-        classificacao["Superclass"] = classes[2]
-
-    return classificacao
+        "Subclass": classes[0] if len(classes) >= 1 else None,
+        "Class": classes[1] if len(classes) >= 2 else None,
+        "Superclass": classes[2] if len(classes) >= 3 else None,
+        "role": dados.get("definition", [None])[0],
+        "ontologia": "chebi"
+    }
 
 
 ##############################
-# LOTUS (Natural product)
+# LOTUS
 ##############################
 
 def lotus_taxonomia(nome):
@@ -87,21 +99,23 @@ def lotus_taxonomia(nome):
     r = requests.get(url)
 
     if r.status_code != 200:
+
         return {}
 
     dados = r.json()
 
     if len(dados) == 0:
+
         return {}
 
     org = dados[0]
 
     return {
+
         "Kingdom": org.get("organism_taxonomy_kingdom"),
         "Family": org.get("organism_taxonomy_family"),
         "Genus": org.get("organism_taxonomy_genus"),
-        "Species": org.get("organism_taxonomy_species"),
-        "Natural_product": True
+        "Species": org.get("organism_taxonomy_species")
     }
 
 
@@ -116,11 +130,13 @@ def classyfire_classification(inchikey):
     r = requests.get(url)
 
     if r.status_code != 200:
+
         return {}
 
     data = r.json()
 
     return {
+
         "Chemical_Kingdom": data.get("kingdom", {}).get("name"),
         "Chemical_Superclass": data.get("superclass", {}).get("name"),
         "Chemical_Class": data.get("class", {}).get("name"),
@@ -129,7 +145,7 @@ def classyfire_classification(inchikey):
 
 
 ##############################
-# HMDB (human metabolite)
+# HMDB
 ##############################
 
 def hmdb_check(nome):
@@ -138,14 +154,36 @@ def hmdb_check(nome):
 
     r = requests.get(url)
 
-    if nome.lower() in r.text.lower():
-        return {"Human_metabolite": True}
-
-    return {"Human_metabolite": False}
+    return {"Human_metabolite": nome.lower() in r.text.lower()}
 
 
 ##############################
-# FOODDB
+# CHEMSPIDER
+##############################
+
+def chemspider_search(nome):
+
+    url = f"https://www.chemspider.com/api/search.asmx/FindCompoundsByName?query={nome}"
+
+    r = requests.get(url)
+
+    if r.status_code != 200:
+
+        return {}
+
+    root = ET.fromstring(r.text)
+
+    csid = root.find('.//{http://www.chemspider.com/}CSID')
+
+    if csid is not None:
+
+        return {"ChemSpider_ID": csid.text}
+
+    return {}
+
+
+##############################
+# FOODB
 ##############################
 
 def foodb_check(nome):
@@ -154,122 +192,4 @@ def foodb_check(nome):
 
     r = requests.get(url)
 
-    if nome.lower() in r.text.lower():
-        return {"Food_component": True}
-
-    return {"Food_component": False}
-
-
-##############################
-# PIPELINE PRINCIPAL
-##############################
-
-def enrich_compound(nome):
-
-    resultado = {"Compound": nome}
-
-    try:
-
-        pubchem = pubchem_data(nome)
-
-        resultado.update(pubchem)
-
-        inchikey = pubchem.get("InChIKey")
-
-        if inchikey:
-
-            classy = classyfire_classification(inchikey)
-
-            resultado.update(classy)
-
-    except:
-        pass
-
-
-    try:
-
-        chebi_id = buscar_chebi(nome)
-
-        if chebi_id:
-
-            resultado["CHEBI_ID"] = chebi_id
-
-            chebi_class = obter_classificacao_chebi(chebi_id)
-
-            resultado.update(chebi_class)
-
-    except:
-        pass
-
-
-    try:
-
-        lotus = lotus_taxonomia(nome)
-
-        resultado.update(lotus)
-
-    except:
-        pass
-
-
-    try:
-
-        hmdb = hmdb_check(nome)
-
-        resultado.update(hmdb)
-
-    except:
-        pass
-
-
-    try:
-
-        foodb = foodb_check(nome)
-
-        resultado.update(foodb)
-
-    except:
-        pass
-
-
-    time.sleep(1)
-
-    return resultado
-
-
-##############################
-# USO COM DATAFRAME
-##############################
-
-def enrich_dataframe(df):
-
-    resultados = []
-
-    for compound in df["Compound"]:
-
-        print("Consultando:", compound)
-
-        enriched = enrich_compound(compound)
-
-        resultados.append(enriched)
-
-    return pd.DataFrame(resultados)
-
-
-##############################
-# EXEMPLO
-##############################
-
-df = pd.DataFrame({
-
-    "Compound": [
-        "caffeine",
-        "quercetin",
-        "glucose"
-    ]
-
-})
-
-df_enriched = enrich_dataframe(df)
-
-print(df_enriched)
+    return {"Food_component": nome.lower() in r.text.lower()}
