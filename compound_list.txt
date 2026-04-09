@@ -1,0 +1,5 @@
+aspirin
+caffeine
+glucose
+ethanol
+acetaminophen

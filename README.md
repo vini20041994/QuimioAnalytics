@@ -46,6 +46,36 @@ Fontes → [stg] → ETL → [core] → Match → [ref] → Top 5 / Dashboard
 
 ---
 
+##  Scripts de ETL
+
+### Extração de Dados Externos
+
+Para enriquecer o banco com dados de bibliotecas químicas públicas, foram criados scripts de extração para cada fonte:
+
+- `scripts/extract/extract_pubchem.py` — PubChem (propriedades, SMILES, InChIKey)
+- `scripts/extract/extract_chebi.py` — ChEBI (ontologia química)
+- `scripts/extract/extract_lotus.py` — LOTUS (taxonomia biológica)
+- `scripts/extract/extract_classyfire.py` — Classyfire (classificação química)
+- `scripts/extract/extract_hmdb.py` — HMDB (metabolitos humanos)
+- `scripts/extract/extract_chemspider.py` — ChemSpider (cross-reference)
+- `scripts/extract/extract_foodb.py` — FooDB (componentes alimentares)
+
+**Uso:**
+```bash
+python scripts/extract/extract_pubchem.py compound_list.txt
+python scripts/extract/extract_classyfire.py inchikey_list.txt
+```
+
+### Transformação
+
+- `scripts/transform/transform_external_data.py` — Normaliza e limpa dados extraídos, salvando em formato trusted.
+
+### Carga
+
+- `scripts/load/load_external_data.py` — Insere dados normalizados no banco PostgreSQL, nas tabelas `ref.external_compound`.
+
+---
+
 ##  Tecnologias
 
 | Camada | Tecnologia |
