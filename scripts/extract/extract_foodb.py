@@ -3,14 +3,18 @@ import json
 from pathlib import Path
 import sys
 import time
+import requests
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 STAGING_DIR = BASE_DIR / "staging"
-sys.path.append(str(BASE_DIR / "scripts" / "extract"))
-
-from api_requests import foodb_check
 
 STAGING_DIR.mkdir(exist_ok=True)
+
+def foodb_check(nome):
+    url = f"https://foodb.ca/unearth/q?query={nome}&searcher=compounds"
+    r = requests.get(url)
+    
+    return {"Food_component": nome.lower() in r.text.lower()}
 
 def extract_foodb(compound_names):
     results = []

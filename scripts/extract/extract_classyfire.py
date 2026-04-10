@@ -3,14 +3,28 @@ import json
 from pathlib import Path
 import sys
 import time
+import requests
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 STAGING_DIR = BASE_DIR / "staging"
-sys.path.append(str(BASE_DIR / "scripts" / "extract"))
-
-from api_requests import classyfire_classification
 
 STAGING_DIR.mkdir(exist_ok=True)
+
+def classyfire_classification(inchikey):
+    url = f"https://gnps-structure.ucsd.edu/classyfire?inchikey={inchikey}"
+    r = requests.get(url)
+    
+    if r.status_code != 200:
+        return {}
+    
+    data = r.json()
+    
+    return {
+        "Chemical_Kingdom": data.get("kingdom", {}).get("name"),
+        "Chemical_Superclass": data.get("superclass", {}).get("name"),
+        "Chemical_Class": data.get("class", {}).get("name"),
+        "Chemical_Subclass": data.get("subclass", {}).get("name")
+    }
 
 def extract_classyfire(inchikeys):
     results = []

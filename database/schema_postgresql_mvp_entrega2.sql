@@ -76,6 +76,60 @@ CREATE TABLE IF NOT EXISTS stg.pubchem_compound_raw (
     loaded_at             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS stg.chebi_compound_raw (
+    chebi_raw_id          BIGSERIAL PRIMARY KEY,
+    batch_id              BIGINT REFERENCES core.ingestion_batch(batch_id),
+    source_file_name      VARCHAR(255),
+    chebi_accession       VARCHAR(30),
+    json_payload          JSONB NOT NULL,
+    loaded_at             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS stg.hmdb_compound_raw (
+    hmdb_raw_id           BIGSERIAL PRIMARY KEY,
+    batch_id              BIGINT REFERENCES core.ingestion_batch(batch_id),
+    source_file_name      VARCHAR(255),
+    hmdb_accession        VARCHAR(30),
+    xml_payload           XML NOT NULL,
+    loaded_at             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS stg.foodb_compound_raw (
+    foodb_raw_id          BIGSERIAL PRIMARY KEY,
+    batch_id              BIGINT REFERENCES core.ingestion_batch(batch_id),
+    source_file_name      VARCHAR(255),
+    foodb_id              VARCHAR(30),
+    json_payload          JSONB NOT NULL,
+    loaded_at             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS stg.classyfire_compound_raw (
+    classyfire_raw_id     BIGSERIAL PRIMARY KEY,
+    batch_id              BIGINT REFERENCES core.ingestion_batch(batch_id),
+    source_file_name      VARCHAR(255),
+    inchikey              VARCHAR(64),
+    json_payload          JSONB NOT NULL,
+    loaded_at             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS stg.chemspider_compound_raw (
+    chemspider_raw_id     BIGSERIAL PRIMARY KEY,
+    batch_id              BIGINT REFERENCES core.ingestion_batch(batch_id),
+    source_file_name      VARCHAR(255),
+    chemspider_id         BIGINT,
+    json_payload          JSONB NOT NULL,
+    loaded_at             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS stg.lotus_compound_raw (
+    lotus_raw_id          BIGSERIAL PRIMARY KEY,
+    batch_id              BIGINT REFERENCES core.ingestion_batch(batch_id),
+    source_file_name      VARCHAR(255),
+    lotus_id              VARCHAR(60),
+    json_payload          JSONB NOT NULL,
+    loaded_at             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS core.feature (
     feature_id                    BIGSERIAL PRIMARY KEY,
     batch_id                      BIGINT NOT NULL REFERENCES core.ingestion_batch(batch_id),

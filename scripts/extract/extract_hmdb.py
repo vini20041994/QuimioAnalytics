@@ -3,14 +3,18 @@ import json
 from pathlib import Path
 import sys
 import time
+import requests
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 STAGING_DIR = BASE_DIR / "staging"
-sys.path.append(str(BASE_DIR / "scripts" / "extract"))
-
-from api_requests import hmdb_check
 
 STAGING_DIR.mkdir(exist_ok=True)
+
+def hmdb_check(nome):
+    url = f"https://hmdb.ca/unearth/q?query={nome}&searcher=metabolites"
+    r = requests.get(url)
+    
+    return {"Human_metabolite": nome.lower() in r.text.lower()}
 
 def extract_hmdb(compound_names):
     results = []

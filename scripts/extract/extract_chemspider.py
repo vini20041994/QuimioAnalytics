@@ -3,14 +3,28 @@ import json
 from pathlib import Path
 import sys
 import time
+import requests
+import xml.etree.ElementTree as ET
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 STAGING_DIR = BASE_DIR / "staging"
-sys.path.append(str(BASE_DIR / "scripts" / "extract"))
-
-from api_requests import chemspider_search
 
 STAGING_DIR.mkdir(exist_ok=True)
+
+def chemspider_search(nome):
+    url = f"https://www.chemspider.com/api/search.asmx/FindCompoundsByName?query={nome}"
+    r = requests.get(url)
+    
+    if r.status_code != 200:
+        return {}
+    
+    root = ET.fromstring(r.text)
+    csid = root.find('.//{http://www.chemspider.com/}CSID')
+    
+    if csid is not None:
+        return {"ChemSpider_ID": csid.text}
+    
+    return {}
 
 def extract_chemspider(compound_names):
     results = []

@@ -3,14 +3,33 @@ import json
 from pathlib import Path
 import sys
 import time
+import requests
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 STAGING_DIR = BASE_DIR / "staging"
-sys.path.append(str(BASE_DIR / "scripts" / "extract"))
-
-from api_requests import lotus_taxonomia
 
 STAGING_DIR.mkdir(exist_ok=True)
+
+def lotus_taxonomia(nome):
+    url = f"https://lotus.naturalproducts.net/api/search/simple?query={nome}"
+    r = requests.get(url)
+    
+    if r.status_code != 200:
+        return {}
+    
+    dados = r.json()
+    
+    if len(dados) == 0:
+        return {}
+    
+    org = dados[0]
+    
+    return {
+        "Kingdom": org.get("organism_taxonomy_kingdom"),
+        "Family": org.get("organism_taxonomy_family"),
+        "Genus": org.get("organism_taxonomy_genus"),
+        "Species": org.get("organism_taxonomy_species")
+    }
 
 def extract_lotus(compound_names):
     results = []

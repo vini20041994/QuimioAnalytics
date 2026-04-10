@@ -3,14 +3,34 @@ import json
 from pathlib import Path
 import sys
 import time
+import requests
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 STAGING_DIR = BASE_DIR / "staging"
-sys.path.append(str(BASE_DIR / "scripts" / "extract"))
-
-from api_requests import pubchem_data
 
 STAGING_DIR.mkdir(exist_ok=True)
+
+def pubchem_data(nome):
+    url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{nome}/property/MolecularFormula,ExactMass,MolecularWeight,InChIKey,CanonicalSMILES,CID/JSON"
+    r = requests.get(url, timeout=10)
+    
+    if r.status_code != 200:
+        return {}
+    
+    props = r.json()["PropertyTable"]["Properties"][0]
+    
+    try:
+        synonyms_url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{props.get('CID')}/synonyms/JSON"
+        syn_r = requests.get(synonyms_url, timeout=10)
+        
+        if syn_r.status_code == 200:
+            syn_data = syn_r.json()
+            synonyms = syn_data["InformationList"]["Information"][0].get("Synonym", [])
+            props["Synonyms"] = synonyms[:5]
+    except:
+        pass
+    
+    return props
 
 def extract_pubchem(compound_names):
     results = []
