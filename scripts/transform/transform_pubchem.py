@@ -1,7 +1,10 @@
 import pandas as pd
-import psycopg2
+from pathlib import Path
 
-from external_transform_utils import load_raw_dataframe, normalize_dataframe, write_trusted_dataframe
+from external_transform_utils import normalize_dataframe
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+STAGING_DIR = PROJECT_ROOT / "staging"
 
 
 def transform_pubchem(df):
@@ -19,10 +22,12 @@ def transform_pubchem(df):
 
 
 def main():
-    df = load_raw_dataframe("pubchem_raw.parquet")
+    raw_path = STAGING_DIR / "pubchem_raw.parquet"
+    df = pd.read_parquet(raw_path)
     df = transform_pubchem(df)
-    write_trusted_dataframe(df, "pubchem_trusted.parquet")
-    print(f"Transformed {len(df)} PubChem rows")
+    trusted_path = STAGING_DIR / "pubchem_trusted.parquet"
+    df.to_parquet(trusted_path)
+    print(f"Transformed {len(df)} PubChem rows -> {trusted_path}")
 
 
 if __name__ == "__main__":

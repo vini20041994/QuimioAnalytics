@@ -1,6 +1,11 @@
 import json
+import pandas as pd
+from pathlib import Path
 
-from external_transform_utils import load_raw_dataframe, normalize_dataframe, write_trusted_dataframe
+from external_transform_utils import normalize_dataframe
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+STAGING_DIR = PROJECT_ROOT / "staging"
 
 JSON_COLUMNS = [
     "secondary_chebi_ids",
@@ -42,10 +47,12 @@ def transform_chebi(df):
 
 
 def main():
-    df = load_raw_dataframe("chebi_raw.parquet")
+    raw_path = STAGING_DIR / "chebi_raw.parquet"
+    df = pd.read_parquet(raw_path)
     df = transform_chebi(df)
-    write_trusted_dataframe(df, "chebi_trusted.parquet")
-    print(f"Transformed {len(df)} ChEBI rows")
+    trusted_path = STAGING_DIR / "chebi_trusted.parquet"
+    df.to_parquet(trusted_path)
+    print(f"Transformed {len(df)} ChEBI rows -> {trusted_path}")
 
 
 if __name__ == "__main__":

@@ -1,9 +1,11 @@
+import json
 import pandas as pd
 from pathlib import Path
-import json
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-STAGING_DIR = BASE_DIR / "staging"
+from external_transform_utils import normalize_dataframe
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+STAGING_DIR = PROJECT_ROOT / "staging"
 
 
 COL_MAP_IDENT = {
@@ -49,9 +51,7 @@ def transform(nome_arquivo, col_map):
 
     df = df.rename(columns=col_map)
 
-    df = df.where(pd.notnull(df), None)
-
-    return df
+    return normalize_dataframe(df)
 
 
 def main():

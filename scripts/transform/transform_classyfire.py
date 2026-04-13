@@ -1,4 +1,10 @@
-from external_transform_utils import load_raw_dataframe, normalize_dataframe, write_trusted_dataframe
+import pandas as pd
+from pathlib import Path
+
+from external_transform_utils import normalize_dataframe
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+STAGING_DIR = PROJECT_ROOT / "staging"
 
 
 def transform_classyfire(df):
@@ -7,10 +13,12 @@ def transform_classyfire(df):
 
 
 def main():
-    df = load_raw_dataframe("classyfire_raw.parquet")
+    raw_path = STAGING_DIR / "classyfire_raw.parquet"
+    df = pd.read_parquet(raw_path)
     df = transform_classyfire(df)
-    write_trusted_dataframe(df, "classyfire_trusted.parquet")
-    print(f"Transformed {len(df)} Classyfire rows")
+    trusted_path = STAGING_DIR / "classyfire_trusted.parquet"
+    df.to_parquet(trusted_path)
+    print(f"Transformed {len(df)} Classyfire rows -> {trusted_path}")
 
 
 if __name__ == "__main__":
