@@ -1,0 +1,6 @@
+2026-05-04 23:52:13,023 - INFO - 🔍 Verificando conectividade com PubChem API...
+2026-05-04 23:52:33,045 - ERROR - ❌ Erro de conexão: HTTPSConnectionPool(host='pubchem.ncbi.nlm.nih.gov', port=443): Max retries exceeded with url: /rest/pug/compound/cid/1983/property/MolecularFormula/JSON (Caused by NameResolutionError("HTTPSConnection(host='pubchem.ncbi.nlm.nih.gov', port=443): Failed to resolve 'pubchem.ncbi.nlm.nih.gov' ([Errno -3] Temporary failure in name resolution)"))
+2026-05-04 23:52:33,045 - ERROR -    Verifique sua conexão com a internet
+2026-05-04 23:52:33,045 - ERROR - 
+❌ ABORTADO: Sem conectividade com PubChem API
+2026-05-04 23:52:33,045 - ERROR -    Verifique sua conexão e tente novamente

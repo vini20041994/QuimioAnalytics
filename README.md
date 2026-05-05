@@ -1,192 +1,359 @@
-<p align="center">
-  <img width="600" height="600" src="https://github.com/Gilasexe/QuimioAnalytics/blob/main/public/3%20(1).png?raw=true" alt="Logo da Panteão Pizzaria">
-</p>
+# QuimioAnalytics
 
+Banco de dados unificado e pipeline ETL para integrar dados analíticos do IST Ambiental com bases químicas públicas.
 
-> Banco de Dados Unificado para o **Instituto SENAI de Tecnologia Ambiental (IST Ambiental)**  
 > Projeto Aplicado II · Ciência de Dados e Inteligência Artificial · SENAI Florianópolis · 2026/1
 
----
+## Sumário
 
-##  Sobre o Projeto
+- [Visão Geral](#visão-geral)
+- [Arquitetura](#arquitetura)
+- [Estrutura do Repositório](#estrutura-do-repositório)
+- [Pré-requisitos](#pré-requisitos)
+- [Início em 5 Minutos](#início-em-5-minutos)
+- [Configuração Rápida](#configuração-rápida)
+- [Como Executar](#como-executar)
+- [Pipelines Externos](#pipelines-externos)
+- [Top 5 Candidatos](#top-5-candidatos)
+- [Validação Rápida](#validação-rápida)
+- [Erros Comuns](#erros-comuns)
+- [Regras de Negócio](#regras-de-negócio)
+- [Consultas Úteis](#consultas-úteis)
+- [Status do Projeto](#status-do-projeto)
+- [Equipe](#equipe)
+- [Licença](#licença)
 
-O IST Ambiental gera grandes volumes de dados analíticos por meio de seu software interno — planilhas de **Identificação** (38.011 linhas, 1.063 features únicas) e **Abundância** (1.104 features, 12 replicatas dinâmicas). Esses dados precisam ser integrados entre si e enriquecidos com bibliotecas químicas públicas (PubChem, ChEBI, HMDB, FooDB) para viabilizar a priorização de compostos candidatos via ranking **Top 5**.
+## Visão Geral
 
-Este repositório contém o modelo lógico, schema físico e scripts de ETL do banco de dados unificado que sustenta esse pipeline.
+O IST Ambiental gera dados em alto volume por meio de planilhas internas de Identificação e Abundância. O QuimioAnalytics organiza esse fluxo em camadas de staging, processamento operacional e enriquecimento com referências externas.
 
----
+Objetivos principais:
 
-##  Arquitetura em Camadas
+- Integrar dados internos sem perda de granularidade.
+- Ranquear candidatos com abordagem probabilística (Top 5).
+- Enriquecer compostos com fontes externas como PubChem, ChEBI e ChemSpider.
+- Preparar base consistente para matching, análise e dashboard.
 
-O banco é dividido em três schemas lógicos no PostgreSQL:
+## Arquitetura
+
+O banco usa três schemas lógicos no PostgreSQL:
 
 | Schema | Função |
 |--------|--------|
-| `stg` | Preserva o dado bruto de origem (staging), sem perda de informação |
-| `core` | Verdade operacional normalizada — features, candidatos, replicatas, abundância |
-| `ref` | Referência externa — compostos públicos, taxonomia, ontologia, usos e matches |
-```
-Fontes → [stg] → ETL → [core] → Match → [ref] → Top 5 / Dashboard
-```
+| `stg` | Persistência dos dados brutos e estágio intermediário |
+| `core` | Verdade operacional normalizada (features, candidatos, replicatas, abundância) |
+| `ref` | Referência externa (compostos, identificadores, taxonomia, usos e matches) |
 
-### Entidades principais
+Fluxo macro:
 
-**Núcleo analítico (`core`)**
-- `core.ingestion_batch` — controla lotes de importação (solvente, modo de ionização)
-- `core.feature` — sinal analítico central; âncora entre Identificação e Abundância
-- `core.sample_group` / `core.replicate` — normaliza as replicatas dinâmicas (1.1, 1.2 … 6.2)
-- `core.abundance_measurement` — tabela fato com valor de abundância por feature × replicata
-- `core.candidate_identification` — candidatos locais (relação 1:N com feature)
-
-**Referência externa (`ref`)**
-- `ref.external_source` / `ref.external_compound` — compostos canônicos das bibliotecas públicas
-- `ref.external_identifier` / `ref.compound_property` — identificadores alternativos e propriedades físico-químicas
-- `ref.taxonomy_node` / `ref.chemical_class` / `ref.use_application` — taxonomia, ontologia e usos
-- `ref.candidate_match` — cruzamento N:N entre candidatos locais e compostos externos (com score e método)
-
----
-
-##  Scripts de ETL
-
-### Extração de Dados Externos
-
-Para enriquecer o banco com dados de bibliotecas químicas públicas, foram criados scripts de extração para cada fonte:
-
-- `scripts/extract/extract_pubchem.py` — PubChem (propriedades, SMILES, InChIKey)
-- `scripts/extract/extract_chebi.py` — ChEBI (ontologia química)
-- `scripts/extract/extract_lotus.py` — LOTUS (taxonomia biológica)
-- `scripts/extract/extract_classyfire.py` — Classyfire (classificação química)
-- `scripts/extract/extract_hmdb.py` — HMDB (metabolitos humanos)
-- `scripts/extract/extract_chemspider.py` — ChemSpider (cross-reference)
-- `scripts/extract/extract_foodb.py` — FooDB (componentes alimentares)
-
-**Uso:**
-```bash
-python scripts/extract/extract_pubchem.py compound_list.txt
-python scripts/extract/extract_classyfire.py inchikey_list.txt
+```text
+Fontes internas/externas → stg → transformações → core / ref → ranking e análise
 ```
 
-### Transformação
+Entidades centrais de análise:
 
-- `scripts/transform/transform_external_data.py` — Normaliza e limpa dados extraídos, salvando em formato trusted.
+- `core.ingestion_batch`
+- `core.feature`
+- `core.sample_group`
+- `core.replicate`
+- `core.abundance_measurement`
+- `core.candidate_identification`
 
-### Carga
+## Estrutura do Repositório
 
-- `scripts/load/load_external_data.py` — Insere dados normalizados no banco PostgreSQL, nas tabelas `ref.external_compound`.
-
----
-
-##  Tecnologias
-
-| Camada | Tecnologia |
-|--------|------------|
-| Banco de dados | PostgreSQL 15+ |
-| ETL / processamento | Python 3 · Pandas · lxml |
-| Integração com APIs | Requests (PubChem REST, ChEBI API) |
-| Modelagem visual | DBeaver / brModelo |
-
----
-
-##  Estrutura do Repositório
-```
-quimioanalytics/
-├── sql/
-│   ├── schema_postgresql_mvp.sql   # DDL completo (stg + core + ref)
-│   └── indexes.sql                 # Índices e constraints adicionais
-├── etl/
-│   ├── load_identification.py      # Leitura e staging de IDENTIFICACAO.xlsx
-│   ├── load_abundance.py           # Leitura, melt e staging de ABUND.xlsx
-│   ├── load_curated_catalog.py     # Staging de Compostos_final.xlsx
-│   └── fetch_pubchem.py            # Ingestão incremental do PubChem XML
+```text
+QuimioAnalytics/
+├── database/
+│   ├── schema_postgresql_mvp_entrega2.sql
+│   └── migrations/
+├── dados_brutos/
 ├── docs/
-│   └── Entrega_2_MVP_Parcial.pdf   # Documento técnico completo
+│   ├── Database/
+│   └── ETL_Bases_Publicas/
+├── logs/
+├── scripts/
+│   ├── extract/
+│   ├── transform/
+│   ├── load/
+│   ├── run/
+│   └── features/
+├── staging/
+├── docker-compose.yml
 └── README.md
 ```
 
----
+## Pré-requisitos
 
-##  Regras de Negócio — Replicatas
+- Linux/macOS/WSL com acesso a terminal
+- Python 3.10+ (recomendado: Python 3.12)
+- Docker Engine + Docker Compose v2 (comando `docker compose`)
+- Porta `5432` livre no host (ou ajuste no `docker-compose.yml`)
+- Ambiente virtual Python
+- Dependências Python: `pandas`, `pyarrow`, `psycopg2-binary`, `requests`, `openpyxl`, `lxml`, `scrapy`
+- Internet para integração externa (PubChem, ChEBI e ChemSpider)
 
-### Agregação de Amostras (1.1 e 1.2)
-Para replicatas biológicas (amostras 1.1 e 1.2), foi escolhida a **OPÇÃO A: Agregar (média)** utilizando `df.groupby('composto').mean()`. Esta abordagem é recomendada para heurística probabilística, pois:
+## Início em 5 Minutos
 
-- **Consistência**: Maior consistência entre replicatas aumenta a confiança do modelo de ranking.
-- **Redução de Dimensionalidade**: Simplifica o dataset sem perda significativa de informação estatística.
-- **Robustez**: A média é menos sensível a outliers individuais comparada a manter valores separados.
+Copie e execute os comandos abaixo na raiz do projeto:
 
-A alternativa (OPÇÃO B: manter separadas como dimensões distintas) seria implementada com uma coluna extra 'tipo_replicata', mas resultaria em maior complexidade analítica e potencial overfitting no modelo.
-
----
-
-##  Como Executar
-
-### Pré-requisitos
-- PostgreSQL 15+
-- Python 3.10+
-- Pacotes: `pandas`, `psycopg2`, `requests`, `lxml`
-
-### 1. Criar o schema no banco
 ```bash
-psql -U seu_usuario -d seu_banco -f sql/schema_postgresql_mvp.sql
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip
+pip install pandas pyarrow psycopg2-binary requests openpyxl lxml scrapy
+docker compose up -d
+docker exec -i quimio_postgres psql -U quimio_user -d quimioanalytics < database/schema_postgresql_mvp_entrega2.sql
 ```
 
-### 2. Configurar variáveis de ambiente
+Configure as variáveis de ambiente (mesmo terminal):
+
 ```bash
 export DB_HOST=localhost
 export DB_PORT=5432
-export DB_NAME=ist_ambiental
-export DB_USER=seu_usuario
-export DB_PASS=sua_senha
+export DB_NAME=quimioanalytics
+export DB_USER=quimio_user
+export DB_PASS=quimio_pass_2024
 ```
 
-### 3. Executar o ETL (ordem recomendada)
+Execute o fluxo completo:
+
 ```bash
-python etl/load_identification.py    # stg → core.feature + core.candidate_identification
-python etl/load_abundance.py         # stg → core.sample_group + core.replicate + core.abundance_measurement
-python etl/load_curated_catalog.py   # stg → ref.curated_catalog_entry
-python etl/fetch_pubchem.py          # stg.pubchem_compound_raw → ref.external_compound
+python3 scripts/run/run_etl.py
+python3 scripts/features/analitcs.py --load-core --batch-name TOP5_RANKING_MERGE
+python3 scripts/run/run_etl_top5_external.py --top5 staging/top5_candidates.parquet
 ```
 
----
+## Configuração Rápida
 
-##  Dados de Referência (MVP Parcial)
+1. Criar e ativar o ambiente virtual:
 
-| Fonte | Volume observado |
-|-------|-----------------|
-| IDENTIFICACAO.xlsx | 38.011 linhas · 1.063 features |
-| ABUND.xlsx | 1.104 features · 12 replicatas (1.1 → 6.2) |
-| Interseção Identificação ∩ Abundância | 962 features |
-| Compostos_final.xlsx | 200 entradas curadas |
-| PubChem XML (amostra) | Estrutura hierárquica analisada e mapeada |
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
 
----
+2. Instalar dependências:
 
-##  Status das Entregas
+```bash
+pip install pandas pyarrow psycopg2-binary requests openpyxl lxml scrapy
+```
 
-- [x] Diagnóstico empírico das fontes do IST
-- [x] Mapa lógico dos dados (MER) com entidades e cardinalidades
-- [x] Schema físico preliminar em PostgreSQL (`stg` + `core` + `ref`)
-- [x] Dicionário de dados (22 entidades documentadas)
-- [x] Mapeamento coluna-a-coluna das planilhas para as tabelas de destino
-- [ ] ETL completo: leitura, melt e carga das planilhas do IST
-- [ ] Integração com PubChem REST API (carga incremental)
-- [ ] Integração com HMDB, ChEBI e FooDB
-- [ ] Motor de matching e score Top 5
-- [ ] Dashboard de visualização
+3. Subir o banco com Docker Compose:
 
----
+```bash
+docker compose up -d
+```
 
-##  Equipe
+4. Aplicar o schema principal:
+
+```bash
+docker exec -i quimio_postgres psql -U quimio_user -d quimioanalytics < database/schema_postgresql_mvp_entrega2.sql
+```
+
+5. (Opcional, recomendado) Aplicar migrations incrementais em ordem:
+
+```bash
+for f in database/migrations/*.sql; do
+	echo "Aplicando $f"
+	docker exec -i quimio_postgres psql -U quimio_user -d quimioanalytics < "$f"
+done
+```
+
+6. Configurar variáveis de ambiente:
+
+```bash
+export DB_HOST=localhost
+export DB_PORT=5432
+export DB_NAME=quimioanalytics
+export DB_USER=quimio_user
+export DB_PASS=quimio_pass_2024
+```
+
+## Como Executar
+
+### 1) ETL principal (dados internos)
+
+Entrada padrão: `dados_brutos/merge_resultado.csv`
+
+```bash
+python3 scripts/run/run_etl.py
+```
+
+Entrada interativa de planilhas:
+
+```bash
+python3 scripts/run/run_etl_user_input.py
+```
+
+### 2) Ranking Top 5
+
+Gerar Top 5 em parquet:
+
+```bash
+python3 scripts/features/analitcs.py
+```
+
+Gerar Top 5 e persistir no schema `core`:
+
+```bash
+python3 scripts/features/analitcs.py --load-core --batch-name TOP5_RANKING_MERGE
+```
+
+### 3) Integração Top 5 com bases externas
+
+Executa PubChem, ChEBI e ChemSpider usando o arquivo de Top 5 como entrada:
+
+```bash
+python3 scripts/run/run_etl_top5_external.py --top5 staging/top5_candidates.parquet
+```
+
+Selecionar fontes específicas:
+
+```bash
+python3 scripts/run/run_etl_top5_external.py --top5 staging/top5_candidates.parquet --sources pubchem chebi
+```
+
+Executar apenas PubChem:
+
+```bash
+python3 scripts/run/run_etl_top5_external.py --top5 staging/top5_candidates.parquet --sources pubchem
+```
+
+Observações operacionais:
+
+- Se PubChem falhar por DNS (`Temporary failure in name resolution`), aguarde e tente novamente.
+- O ChemSpider pode retornar 0 resultados para alguns nomes IUPAC complexos (limitação de scraping).
+
+## Pipelines Externos
+
+Execução consolidada por fonte:
+
+- **PubChem:**
+
+```bash
+python3 scripts/run/run_etl_pubchem.py <arquivo_entrada>
+```
+
+- **ChEBI:**
+
+```bash
+python3 scripts/run/run_etl_chebi.py <arquivo_entrada>
+```
+
+- **ChemSpider:**
+
+```bash
+python3 scripts/run/run_etl_chemspider.py --file <arquivo_entrada>
+python3 scripts/run/run_etl_chemspider.py --description Caffeine Aspirin
+```
+
+Documentação detalhada por fonte:
+
+- `docs/ETL_Bases_Publicas/PUBCHEM.md`
+- `docs/ETL_Bases_Publicas/ETL_CHEBI.md`
+- `docs/ETL_Bases_Publicas/CHEMSPIDER.md`
+
+## Top 5 Candidatos
+
+| Parâmetro | Valor padrão |
+|-----------|--------------|
+| Entrada | `dados_brutos/merge_resultado.csv` |
+| Saída | `staging/top5_candidates.parquet` |
+| Script | `scripts/features/analitcs.py` |
+
+Resumo do método probabilístico:
+
+1. Normalização dos componentes técnicos: `mass_error_ppm`, fragmentação, isótopo e score original.
+2. Score ponderado por critério analítico (erro de massa 40 %, fragmentação 30 %, score software 20 %, isótopo 10 %).
+3. Ajuste pelo fator de abundância e estabilidade entre replicatas.
+4. Conversão para probabilidade global via softmax.
+5. Seleção dos 5 candidatos com maior probabilidade por feature.
+
+## Validação Rápida
+
+Após executar o fluxo, valide com:
+
+```sql
+SELECT COUNT(*) AS stg_identification_row FROM stg.identification_row;
+SELECT COUNT(*) AS stg_abundance_row FROM stg.abundance_row;
+SELECT COUNT(*) AS stg_curated_catalog_row FROM stg.curated_catalog_row;
+
+SELECT COUNT(*) AS stg_pubchem FROM stg.pubchem_compound_raw;
+SELECT COUNT(*) AS stg_chebi FROM stg.chebi_compound_raw;
+SELECT COUNT(*) AS stg_chemspider FROM stg.chemspider_compound_raw;
+
+SELECT COUNT(*) AS ref_curated_catalog_entry FROM ref.curated_catalog_entry;
+SELECT COUNT(*) AS ref_chemical_class FROM ref.chemical_class;
+SELECT COUNT(*) AS ref_compound_class FROM ref.compound_class;
+SELECT COUNT(*) AS ref_external_import_log FROM ref.external_import_log;
+```
+
+Critério de sucesso mínimo:
+
+- `stg.identification_row`, `stg.abundance_row` e `stg.curated_catalog_row` com registros > 0
+- `staging/top5_candidates.parquet` gerado
+- Pelo menos uma fonte externa carregada com sucesso (quando houver conectividade)
+
+## Erros Comuns
+
+1. Porta `5432` ocupada
+	- Sintoma: container PostgreSQL não sobe.
+	- Ação: liberar a porta ou remapear no `docker-compose.yml`.
+
+2. `ON CONFLICT` sem constraint única
+	- Sintoma: erro ao carregar dados externos.
+	- Ação: aplicar as migrations em `database/migrations/` na ordem.
+
+3. Falha DNS no PubChem
+	- Sintoma: `Temporary failure in name resolution`.
+	- Ação: problema de rede externo; repetir execução depois.
+
+4. ChemSpider retornando 0
+	- Sintoma: nenhuma linha em `stg.chemspider_compound_raw`.
+	- Ação: esperado para parte dos compostos com nomes complexos.
+
+## Regras de Negócio
+
+**Tratamento de replicatas:** as replicatas biológicas são agregadas pela média, o que reduz ruído e favorece a comparabilidade no ranking probabilístico. A estratégia pode ser alterada para manter replicatas separadas quando a análise individual for necessária.
+
+## Consultas Úteis
+
+Contagem de registros por fonte:
+
+```sql
+SELECT COUNT(*) FROM stg.pubchem_compound_raw;
+SELECT COUNT(*) FROM stg.chebi_compound_raw;
+SELECT COUNT(*) FROM stg.chemspider_compound_raw;
+```
+
+Verificação rápida — PubChem:
+
+```sql
+SELECT pubchem_cid, molecular_formula, inchikey
+FROM stg.pubchem_compound_raw
+LIMIT 10;
+```
+
+## Status do Projeto
+
+- [x] Diagnóstico das fontes internas
+- [x] Modelagem lógica e schema físico (`stg`, `core`, `ref`)
+- [x] ETL principal para planilhas internas
+- [x] Ranking Top 5 com exportação e carga opcional em `core`
+- [x] ETL por fonte para PubChem, ChEBI e ChemSpider
+- [x] Runner integrado Top 5 → bases externas
+- [ ] Matching consolidado `core` × `ref`
+- [ ] Dashboard analítico
+
+## Equipe
 
 | Membro | Frente principal |
-|--------|-----------------|
-| Guilherme da Silva Anselmo | Modelagem PostgreSQL e DER visual |
-| Guilherme Zamboni Menegacio | ETL com Pandas (melt, pivot, carga) |
-| Vinícius Joacir dos Anjos | Ingestão de bibliotecas públicas (PubChem, HMDB, ChEBI, FooDB) |
-| Samuel Silva de Rezende | Documentação, apresentação e racional de arquitetura |
+|--------|------------------|
+| Guilherme da Silva Anselmo | Modelagem PostgreSQL e DER |
+| Guilherme Zamboni Menegacio | ETL com Pandas |
+| Vinícius Joacir dos Anjos | Integração com bases públicas |
+| Samuel Silva de Rezende | Documentação e arquitetura |
 
----
+## Licença
 
-## 📄 Licença
-
-Uso acadêmico interno — SENAI Florianópolis · 2026
+Uso acadêmico interno — SENAI Florianópolis — 2026.

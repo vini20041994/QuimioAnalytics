@@ -183,8 +183,28 @@ CREATE TABLE IF NOT EXISTS core.candidate_identification (
     isotope_similarity    NUMERIC(12,6),
     description           TEXT,
     link_url              TEXT,
-    candidate_rank_local  INTEGER
+    candidate_rank_local  INTEGER,
+    score_base            NUMERIC(12,6),
+    score_final           NUMERIC(20,10),
+    global_probability    NUMERIC(20,10),
+    abundance_mean        NUMERIC(20,8),
+    abundance_cv          NUMERIC(12,6)
 );
+
+ALTER TABLE core.candidate_identification
+ADD COLUMN IF NOT EXISTS score_base NUMERIC(12,6);
+
+ALTER TABLE core.candidate_identification
+ADD COLUMN IF NOT EXISTS score_final NUMERIC(20,10);
+
+ALTER TABLE core.candidate_identification
+ADD COLUMN IF NOT EXISTS global_probability NUMERIC(20,10);
+
+ALTER TABLE core.candidate_identification
+ADD COLUMN IF NOT EXISTS abundance_mean NUMERIC(20,8);
+
+ALTER TABLE core.candidate_identification
+ADD COLUMN IF NOT EXISTS abundance_cv NUMERIC(12,6);
 
 CREATE TABLE IF NOT EXISTS ref.external_source (
     source_id             BIGSERIAL PRIMARY KEY,

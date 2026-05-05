@@ -1,0 +1,50 @@
+2026-05-05 00:28:19,338 - INFO - 🔍 Verificando conectividade com ChEBI/OLS API...
+2026-05-05 00:28:21,415 - INFO - ✅ Conectividade OK - API ChEBI/OLS acessível
+2026-05-05 00:28:21,416 - INFO - 
+2026-05-05 00:28:21,421 - INFO - Carregado 5 compostos de /home/vinicius_joacir/QuimioAnalytics/staging/top5_external_input.csv
+2026-05-05 00:28:21,421 - INFO - 
+============================================================
+2026-05-05 00:28:21,421 - INFO - Iniciando extração de 5 compostos do ChEBI
+2026-05-05 00:28:21,421 - INFO - ============================================================
+
+2026-05-05 00:28:21,422 - INFO - [1/5] Processando composto...
+2026-05-05 00:28:22,953 - INFO - ✓ Encontrado CHEBI:37527 via name='heminordihydroguaiaretic acid'
+2026-05-05 00:28:22,954 - INFO -   Buscando dados completos de CHEBI:37527...
+2026-05-05 00:28:23,761 - INFO -   ✓ Sucesso! CHEBI:37527
+
+2026-05-05 00:28:23,862 - INFO - [2/5] Processando composto...
+2026-05-05 00:28:25,518 - INFO - ✓ Encontrado CHEBI:132424 via formula='C15H16ClN3O2'
+2026-05-05 00:28:25,518 - INFO -   Buscando dados completos de CHEBI:132424...
+2026-05-05 00:28:26,015 - INFO -   ✓ Sucesso! CHEBI:132424
+
+2026-05-05 00:28:26,115 - INFO - [3/5] Processando composto...
+2026-05-05 00:28:26,860 - INFO - ✓ Encontrado CHEBI:18022 via name='Gold(1+) thiocyanate'
+2026-05-05 00:28:26,860 - INFO -   Buscando dados completos de CHEBI:18022...
+2026-05-05 00:28:27,217 - INFO -   ✓ Sucesso! CHEBI:18022
+
+2026-05-05 00:28:27,318 - INFO - [4/5] Processando composto...
+2026-05-05 00:28:28,584 - INFO - ✓ Encontrado CHEBI:192531 via formula='C19H24N3O2'
+2026-05-05 00:28:28,584 - INFO -   Buscando dados completos de CHEBI:192531...
+2026-05-05 00:28:28,932 - INFO -   ✓ Sucesso! CHEBI:192531
+
+2026-05-05 00:28:29,032 - INFO - [5/5] Processando composto...
+2026-05-05 00:28:30,154 - INFO - ✓ Encontrado CHEBI:235467 via formula='C18H22N3O2'
+2026-05-05 00:28:30,154 - INFO -   Buscando dados completos de CHEBI:235467...
+2026-05-05 00:28:30,512 - INFO -   ✓ Sucesso! CHEBI:235467
+
+2026-05-05 00:28:30,623 - INFO - 
+✓ Resultados salvos em: /home/vinicius_joacir/QuimioAnalytics/staging/chebi_raw.parquet
+2026-05-05 00:28:30,627 - INFO - ✓ CSV salvo em: /home/vinicius_joacir/QuimioAnalytics/staging/chebi_raw.csv
+2026-05-05 00:28:30,627 - INFO - 
+============================================================
+2026-05-05 00:28:30,627 - INFO - ESTATÍSTICAS FINAIS
+2026-05-05 00:28:30,627 - INFO - ============================================================
+2026-05-05 00:28:30,627 - INFO - Total processado: 5
+2026-05-05 00:28:30,627 - INFO - Sucesso: 5 (100.0%)
+2026-05-05 00:28:30,627 - INFO - Falhas: 0 (0.0%)
+2026-05-05 00:28:30,627 - INFO - 
+Métodos de busca utilizados:
+2026-05-05 00:28:30,627 - INFO -   - name: 2
+2026-05-05 00:28:30,627 - INFO -   - formula: 3
+2026-05-05 00:28:30,627 - INFO - ============================================================
+

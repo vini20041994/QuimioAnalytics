@@ -1,0 +1,8 @@
+{
+  "identificacao": "IDENTIFICACAO_ER_ACETATO_SADIA_",
+  "abundancia": "ABUND_ER_ACETATO_SADIA_NEG",
+  "compostos": "Metabolitos_Acetato_POS_NEG",
+  "identificacao_arquivo": "/home/vinicius_joacir/QuimioAnalytics/dados_brutos/IDENTIFICACAO.xlsx",
+  "abundancia_arquivo": "/home/vinicius_joacir/QuimioAnalytics/dados_brutos/ABUND.xlsx",
+  "compostos_arquivo": "/home/vinicius_joacir/QuimioAnalytics/dados_brutos/Compostos_final.xlsx"
+}

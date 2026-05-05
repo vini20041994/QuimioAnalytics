@@ -1,13 +1,14 @@
 import os
 import json
 from pathlib import Path
+from decimal import Decimal
 
 import pandas as pd
 import psycopg2
 from psycopg2.extras import Json
 
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent  # Raiz do projeto
 STAGING_DIR = BASE_DIR / "staging"
 EXCEL_SHEET_METADATA = STAGING_DIR / "excel_sheet_names.json"
 
@@ -21,10 +22,20 @@ def db_params():
     return dict(
         host=os.getenv("DB_HOST", "localhost"),
         port=int(os.getenv("DB_PORT", "5432")),
-        dbname=os.getenv("DB_NAME", "ist_ambiental"),
-        user=os.getenv("DB_USER", "postgres"),
-        password=os.getenv("DB_PASS", "postgres"),
+        dbname=os.getenv("DB_NAME", "quimioanalytics"),
+        user=os.getenv("DB_USER", "quimio_user"),
+        password=os.getenv("DB_PASS", "quimio_pass_2024"),
     )
+
+
+def _json_safe(value):
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(v) for v in value]
+    return value
 
 
 # =========================
@@ -32,9 +43,6 @@ def db_params():
 # =========================
 
 def create_batch(cur, batch_name):
-
-    batch_name = os.getenv("BATCH_NAME", batch_name)
-
     cur.execute(
         """
         INSERT INTO core.ingestion_batch (
@@ -48,8 +56,8 @@ def create_batch(cur, batch_name):
         """,
         (
             batch_name,
-            os.getenv("BATCH_SOLVENT"),
-            os.getenv("BATCH_IONIZATION_MODE"),
+            None,
+            None,
             "Carga staging trusted parquet → PostgreSQL",
         ),
     )
@@ -66,6 +74,9 @@ def insert_identificacao(cur, df, batch_id, source_sheet):
     count = 0
 
     for i, row in df.iterrows():
+        
+        # Converter NaN para None de forma segura
+        row_dict = _json_safe({k: (None if pd.isna(v) else v) for k, v in row.to_dict().items()})
 
         cur.execute(
             """
@@ -107,7 +118,7 @@ def insert_identificacao(cur, df, batch_id, source_sheet):
                 row.get("neutral_mass_da"),
                 row.get("mz"),
                 row.get("retention_time_min"),
-                Json(row.to_dict()),
+                Json(row_dict),
             ),
         )
 
@@ -132,10 +143,13 @@ def insert_abundancia(cur, df, batch_id, source_sheet):
     for i, row in df.iterrows():
 
         replicate_payload = {
-            col: row[col]
+            col: (None if pd.isna(row[col]) else float(row[col]))
             for col in replicate_cols
             if pd.notna(row[col])
         }
+        
+        # Converter NaN para None de forma segura
+        row_dict = _json_safe({k: (None if pd.isna(v) else v) for k, v in row.to_dict().items()})
 
         cur.execute(
             """
@@ -165,7 +179,7 @@ def insert_abundancia(cur, df, batch_id, source_sheet):
                 row.get("chrom_peak_width_min"),
                 row.get("identifications_total"),
                 Json(replicate_payload),
-                Json(row.to_dict()),
+                Json(row_dict),
             ),
         )
 
@@ -183,6 +197,9 @@ def insert_compostos(cur, df, batch_id, source_sheet):
     count = 0
 
     for _, row in df.iterrows():
+        
+        # Converter NaN para None de forma segura
+        row_dict = _json_safe({k: (None if pd.isna(v) else v) for k, v in row.to_dict().items()})
 
         cur.execute(
             """
@@ -210,10 +227,65 @@ def insert_compostos(cur, df, batch_id, source_sheet):
                 row.get("chemical_category"),
                 row.get("metabolism_note"),
                 row.get("pathway_note"),
-                Json(row.to_dict()),
+                Json(row_dict),
             ),
         )
 
+        count += 1
+
+    return count
+
+
+# =========================
+# REF: CURATED CATALOG ENTRY
+# =========================
+
+def insert_curated_catalog_entry(cur, df, source_sheet):
+    """Popula ref.curated_catalog_entry a partir dos dados de compostos do staging."""
+    count = 0
+    for _, row in df.iterrows():
+        compound_name = row.get("compound_name")
+        if compound_name is None or (hasattr(compound_name, '__class__') and compound_name != compound_name):  # NaN check
+            continue
+        try:
+            if pd.isna(compound_name):
+                continue
+        except (TypeError, ValueError):
+            pass
+
+        catalog_code = row.get("catalog_code")
+        cc = None
+        try:
+            if catalog_code is not None and not pd.isna(catalog_code):
+                cc = str(catalog_code)
+        except (TypeError, ValueError):
+            pass
+
+        def safe_val(key):
+            v = row.get(key)
+            try:
+                return None if (v is None or pd.isna(v)) else str(v)
+            except (TypeError, ValueError):
+                return str(v) if v is not None else None
+
+        cur.execute(
+            """
+            INSERT INTO ref.curated_catalog_entry (
+                catalog_code, compound_name, solvent, ionization_mode,
+                chemical_category, metabolism_note, pathway_note, source_sheet
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                cc,
+                str(compound_name),
+                safe_val("solvent"),
+                safe_val("ionization_mode"),
+                safe_val("chemical_category"),
+                safe_val("metabolism_note"),
+                safe_val("pathway_note"),
+                source_sheet,
+            ),
+        )
         count += 1
 
     return count
@@ -258,6 +330,7 @@ def main():
             total_ident = insert_identificacao(cur, ident, batch_id, sheet_names.get("identificacao", "IDENTIFICACAO"))
             total_abund = insert_abundancia(cur, abund, batch_id, sheet_names.get("abundancia", "ABUND"))
             total_compostos = insert_compostos(cur, compostos, batch_id, sheet_names.get("compostos", "Compostos_final"))
+            total_curated_ref = insert_curated_catalog_entry(cur, compostos, sheet_names.get("compostos", "Compostos_final"))
 
             conn.commit()
 
@@ -266,6 +339,7 @@ def main():
         stg_identification_row=total_ident,
         stg_abundance_row=total_abund,
         stg_curated_catalog_row=total_compostos,
+        ref_curated_catalog_entry=total_curated_ref,
     )
 
     print(json.dumps(resumo, indent=2, ensure_ascii=False))
