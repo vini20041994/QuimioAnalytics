@@ -43,6 +43,16 @@ def _json_safe(value):
 # =========================
 
 def create_batch(cur, batch_name):
+    """Cria um novo batch. Retorna (batch_id, is_new).
+    Se batch_name já existe, retorna o batch_id existente e is_new=False."""
+    cur.execute(
+        "SELECT batch_id FROM core.ingestion_batch WHERE batch_name = %s LIMIT 1",
+        (batch_name,),
+    )
+    row = cur.fetchone()
+    if row is not None:
+        return row[0], False
+
     cur.execute(
         """
         INSERT INTO core.ingestion_batch (
@@ -61,8 +71,7 @@ def create_batch(cur, batch_name):
             "Carga staging trusted parquet → PostgreSQL",
         ),
     )
-
-    return cur.fetchone()[0]
+    return cur.fetchone()[0], True
 
 
 # =========================
@@ -270,6 +279,17 @@ def insert_curated_catalog_entry(cur, df, source_sheet):
 
         cur.execute(
             """
+            SELECT 1 FROM ref.curated_catalog_entry
+            WHERE compound_name = %s AND (catalog_code = %s OR (catalog_code IS NULL AND %s IS NULL))
+            LIMIT 1
+            """,
+            (str(compound_name), cc, cc),
+        )
+        if cur.fetchone() is not None:
+            continue
+
+        cur.execute(
+            """
             INSERT INTO ref.curated_catalog_entry (
                 catalog_code, compound_name, solvent, ionization_mode,
                 chemical_category, metabolism_note, pathway_note, source_sheet
@@ -325,7 +345,14 @@ def main():
 
         with conn.cursor() as cur:
 
-            batch_id = create_batch(cur, batch_name)
+            batch_id, is_new = create_batch(cur, batch_name)
+
+            if not is_new:
+                print(
+                    f"[AVISO] Batch '{batch_name}' ja existe no banco (batch_id={batch_id}). "
+                    "Carga ignorada para evitar duplicacao."
+                )
+                return
 
             total_ident = insert_identificacao(cur, ident, batch_id, sheet_names.get("identificacao", "IDENTIFICACAO"))
             total_abund = insert_abundancia(cur, abund, batch_id, sheet_names.get("abundancia", "ABUND"))
