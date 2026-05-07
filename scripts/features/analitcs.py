@@ -5,8 +5,24 @@ import numpy as np
 import psycopg2
 from pathlib import Path
 
+from .scoring import score_mass, score_fragmentation, score_isotope, normalize_score_software, softmax_per_feature
+from .io import load_and_merge_planilhas
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_INPUT_CSV = PROJECT_ROOT / "dados_brutos" / "merge_resultado.csv"
+
+# ---
+# QuimioAnalytics - Pipeline de Ranking Probabilístico
+#
+# Classificação dos compostos: feita manualmente, atribuindo a cada composto anotado uma classe de acordo com o objetivo do projeto (classe química ou bioquímica aplicada).
+#
+# Atributos utilizados das tabelas de Identificação e Abundância:
+#   compound, compound ID, adducts, formula, score, fragment score, mass error, isotopic similarity, link, description, neutral mass, m/z, retention time, identification, abundância (normalizada).
+#
+# Score: pontuação baseada em erro de massa, fragmentação e similaridade isotópica. Os três parâmetros são igualmente importantes para uma anotação precisa. Quanto maior o score, maior a chance de ser a estrutura correta. Também é considerada a plausibilidade biológica do candidato estar presente na amostra.
+#
+# Probabilidade: calculada a partir do score final ponderado, usando pesos definidos e softmax por feature cromatográfica.
+# ---
+
 DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "staging" / "top5_candidates.parquet"
 DEFAULT_BATCH_NAME = "TOP5_RANKING"
 
@@ -33,56 +49,44 @@ def db_params():
         user=os.getenv("DB_USER", "quimio_user"),
         password=os.getenv("DB_PASS", "quimio_pass_2024"),
     )
-
-# --- Funções de Scoring (cada uma retorna valor em [0, 1]) ---
-
-def score_mass(ppm_abs, tolerance=5.0):
-    """
-    Score de exatidão de massa.
-    Penaliza desvios acima da tolerância (padrão 5 ppm).
-    """
-    return float(max(0.0, 1.0 - (ppm_abs / tolerance)))
-
-
 def score_fragmentation(raw_value):
-    """
-    Score de fragmentação normalizado para [0, 1].
-    O CSV reporta valores em escala 0–100.
-    """
     return float(np.clip(raw_value / 100.0, 0.0, 1.0))
-
 
 def score_isotope(raw_value):
-    """
-    Score de similaridade isotópica normalizado para [0, 1].
-    O CSV reporta valores em escala 0–100.
-    """
     return float(np.clip(raw_value / 100.0, 0.0, 1.0))
 
-
 def score_software(raw_value, col_min, col_max):
-    """
-    Normaliza o Score original do software para [0, 1] usando
-    min-max do conjunto de candidatos.
-    """
     span = col_max - col_min
     if span == 0:
         return 0.0
     return float(np.clip((raw_value - col_min) / span, 0.0, 1.0))
 
+def _softmax_per_feature(df, feature_col='Compound', score_col='score_final'):
+    def softmax_group(group):
+        values = group[score_col].astype(float).to_numpy()
+        shifted = values - np.nanmax(values)
+        exp_values = np.exp(shifted)
+        denom = exp_values.sum()
+        if denom == 0 or np.isnan(denom):
+            return pd.Series(np.zeros(len(group)), index=group.index)
+        return pd.Series(exp_values / denom, index=group.index)
 
-def _softmax_global(series):
+    probabilities = df.groupby(feature_col, group_keys=False).apply(softmax_group)
+    return probabilities
+    A soma das probabilidades dos candidatos de uma mesma feature será 1.
     """
-    Converte scores em probabilidades sobre todos os candidatos (soma global = 1).
-    Usa shift numérico para estabilidade.
-    """
-    values = series.astype(float).to_numpy()
-    shifted = values - np.nanmax(values)
-    exp_values = np.exp(shifted)
-    denom = exp_values.sum()
-    if denom == 0 or np.isnan(denom):
-        return pd.Series(np.zeros(len(series)), index=series.index)
-    return pd.Series(exp_values / denom, index=series.index)
+    def softmax_group(group):
+        values = group[score_col].astype(float).to_numpy()
+        shifted = values - np.nanmax(values)
+        exp_values = np.exp(shifted)
+        denom = exp_values.sum()
+        if denom == 0 or np.isnan(denom):
+            return pd.Series(np.zeros(len(group)), index=group.index)
+        return pd.Series(exp_values / denom, index=group.index)
+
+    # Aplica o softmax em cada grupo de feature
+    probabilities = df.groupby(feature_col, group_keys=False).apply(softmax_group)
+    return probabilities
 
 
 def _safe_value(value):
@@ -107,6 +111,7 @@ def _extract_replicate_values(row):
         replicate_values[key] = float(value)
 
     return replicate_values
+        Quanto menor o erro de massa, maior o score.
 
 
 def _ensure_candidate_columns(cur):
@@ -138,6 +143,7 @@ def _get_or_create_batch(cur, batch_name):
         return row[0]
 
     cur.execute(
+        A soma das probabilidades dos candidatos de uma mesma feature será 1.
         """
         INSERT INTO core.ingestion_batch (
             batch_name,
@@ -233,27 +239,7 @@ def _upsert_replicate(cur, sample_group_id, replicate_code):
 def _upsert_abundance_measurements(cur, batch_id, feature_id, row):
     replicate_values = _extract_replicate_values(row)
 
-    for replicate_code, abundance_value in replicate_values.items():
-        group_code = replicate_code.split(".")[0]
-        sample_group_id = _upsert_sample_group(cur, batch_id, group_code)
-        replicate_id = _upsert_replicate(cur, sample_group_id, replicate_code)
 
-        cur.execute(
-            """
-            INSERT INTO core.abundance_measurement (
-                feature_id,
-                replicate_id,
-                abundance_value,
-                measurement_note
-            )
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (feature_id, replicate_id)
-            DO UPDATE SET
-                abundance_value = EXCLUDED.abundance_value,
-                measurement_note = EXCLUDED.measurement_note
-            """,
-            (
-                feature_id,
                 replicate_id,
                 abundance_value,
                 "Carga automatica a partir do ranking Top 5",
@@ -338,7 +324,8 @@ def load_top5_to_core(df_top5, batch_name=DEFAULT_BATCH_NAME):
 
 
 def run_probabilistic_ranking(
-    input_csv=DEFAULT_INPUT_CSV,
+    identificacao_xlsx=PROJECT_ROOT / "dados_brutos" / "IDENTIFICACAO.xlsx",
+    abund_xlsx=PROJECT_ROOT / "dados_brutos" / "ABUND.xlsx",
     output_path=DEFAULT_OUTPUT_PATH,
     load_core=False,
     batch_name=DEFAULT_BATCH_NAME,
@@ -348,7 +335,7 @@ def run_probabilistic_ranking(
     exportados pelo software de análise.
 
     Fluxo:
-    1. Carrega o CSV com os candidatos gerados pelo software.
+    1. Carrega as planilhas de identificação e abundância originais (deve conter todos os candidatos para cada feature cromatográfica).
     2. Processa abundância média e CV entre as réplicas.
     3. Normaliza cada componente de score para [0, 1].
     4. Calcula um score final ponderado por candidato.
@@ -361,66 +348,79 @@ def run_probabilistic_ranking(
         input_csv (str | Path): Caminho para o CSV de candidatos.
         output_path (str | Path): Caminho para salvar o Parquet de saída.
     """
-    input_csv = Path(input_csv)
+    identificacao_xlsx = Path(identificacao_xlsx)
+    abund_xlsx = Path(abund_xlsx)
     output_path = Path(output_path)
 
-    # 1. Carga
-    df = pd.read_csv(input_csv)
-    df.rename(columns=RENAME_MAP, inplace=True)
+    # 1. Carga das planilhas
+    df_id = pd.read_excel(identificacao_xlsx)
+    df_abund = pd.read_excel(abund_xlsx)
+
+    # Ajuste de nomes de colunas se necessário
+    df_id.rename(columns=RENAME_MAP, inplace=True)
+    df_abund.rename(columns=RENAME_MAP, inplace=True)
+
+    # Merge das planilhas
+    merge_keys = [col for col in ['Compound', 'mz', 'rt'] if col in df_id.columns and col in df_abund.columns]
+    if not merge_keys:
+        raise ValueError("Não há colunas comuns suficientes para realizar o merge entre identificação e abundância.")
+    df = pd.merge(df_id, df_abund, on=merge_keys, suffixes=('', '_abund'))
 
     missing = [c for c in REQUIRED_COLS if c not in df.columns]
     if missing:
-        raise ValueError(f"Colunas obrigatórias ausentes no CSV: {missing}")
+        raise ValueError(f"Colunas obrigatórias ausentes após o merge: {missing}")
 
     # 2. Processamento de Abundância (réplicas: colunas no padrão 1.1, 1.2, 2.1 ...)
     cols_replicatas = [c for c in df.columns if '.' in c and c.split('.')[-1].isdigit()]
     if cols_replicatas:
         df[cols_replicatas] = df[cols_replicatas].apply(pd.to_numeric, errors='coerce')
         df['media_abundancia'] = df[cols_replicatas].mean(axis=1)
-        df['cv'] = (
-            df[cols_replicatas].std(axis=1) / (df['media_abundancia'] + 1e-9)
-        ) * 100
+        # CV como fração (não percentual)
+        df['cv'] = df[cols_replicatas].std(axis=1) / (df['media_abundancia'] + 1e-9)
         df['replicate_payload'] = df[cols_replicatas].apply(lambda x: x.to_json(), axis=1)
     else:
         df['media_abundancia'] = 0.0
         df['cv'] = 0.0
         df['replicate_payload'] = '{}'
 
+
     # 3. Normalização dos scores para [0, 1]
     numeric_score_cols = ['score_original', 'fragment_score', 'isotope_similarity', 'mass_error_ppm']
     for col in numeric_score_cols:
         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
-    score_min = df['score_original'].min()
-    score_max = df['score_original'].max()
-
+    # Normalização dos parâmetros principais
     df['s_mass']          = df['mass_error_ppm'].abs().apply(score_mass)
     df['s_fragmentation'] = df['fragment_score'].apply(score_fragmentation)
     df['s_isotope']       = df['isotope_similarity'].apply(score_isotope)
-    df['s_software']      = df['score_original'].apply(
-        lambda v: score_software(v, score_min, score_max)
-    )
 
-    # 4. Score ponderado
-    # Pesos: erro de massa (40%) · fragmentação (30%) · score software (20%) · isótopo (10%)
-    df['score_base'] = (
-        0.40 * df['s_mass'] +
-        0.30 * df['s_fragmentation'] +
-        0.20 * df['s_software'] +
-        0.10 * df['s_isotope']
-    )
+    # Score principal: média dos três parâmetros (pesos iguais)
+    df['score_base'] = (df['s_mass'] + df['s_fragmentation'] + df['s_isotope']) / 3.0
 
-    # 5. Fator de abundância: sinal alto + réplicas consistentes elevam o score
+    # Score_original como fator de relevância adicional (normalizado)
+    score_min = df['score_original'].min()
+    score_max = df['score_original'].max()
+    if score_max > score_min:
+        df['score_software'] = (df['score_original'] - score_min) / (score_max - score_min)
+    else:
+        df['score_software'] = 0.0
+
+    # Fator de abundância: log1p(media_abundancia) * (1/(1+cv))
     abundance_factor = np.log1p(df['media_abundancia']) * (1.0 / (1.0 + df['cv']))
-    df['score_final'] = (df['score_base'] * abundance_factor).fillna(0)
 
-    # 6. Probabilidade global (softmax sobre todos os candidatos)
-    df['probabilidade'] = _softmax_global(df['score_final'])
+    # Score final: combina score_base, score_software e abundância normalizada
+    # Exemplo: score_final = score_base * (0.5 + 0.5*score_software) * abundance_factor
+    # (ajuste o peso do score_software conforme desejado)
+    df['score_final'] = (df['score_base'] * (0.5 + 0.5 * df['score_software']) * abundance_factor).fillna(0)
 
-    # 7. Top 5 candidatos mais prováveis
-    df = df.sort_values('probabilidade', ascending=False).reset_index(drop=True)
-    df['rank'] = df.index + 1
+    # 6. Probabilidade por feature (softmax dentro de cada grupo de 'Compound')
+    df['probabilidade'] = _softmax_per_feature(df, feature_col='Compound', score_col='score_final')
+
+    # 7. Top 5 candidatos por feature
+    df = df.sort_values(['Compound', 'probabilidade'], ascending=[True, False])
+    df['rank'] = df.groupby('Compound').cumcount() + 1
     df_top5 = df[df['rank'] <= 5].copy()
+
 
     # 8. Exportação
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -440,14 +440,16 @@ def run_probabilistic_ranking(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Ranking probabilistico e carga opcional no schema core")
-    parser.add_argument("--input", default=str(DEFAULT_INPUT_CSV), help="Caminho do CSV de entrada")
+    parser.add_argument("--identificacao", default=str(PROJECT_ROOT / "dados_brutos" / "IDENTIFICACAO.xlsx"), help="Caminho da planilha de identificação (xlsx)")
+    parser.add_argument("--abundancia", default=str(PROJECT_ROOT / "dados_brutos" / "ABUND.xlsx"), help="Caminho da planilha de abundância (xlsx)")
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT_PATH), help="Caminho do parquet de saida")
     parser.add_argument("--load-core", action="store_true", help="Persiste o Top 5 no schema core")
     parser.add_argument("--batch-name", default=DEFAULT_BATCH_NAME, help="Nome do batch em core.ingestion_batch")
     args = parser.parse_args()
 
     run_probabilistic_ranking(
-        input_csv=args.input,
+        identificacao_xlsx=args.identificacao,
+        abund_xlsx=args.abundancia,
         output_path=args.output,
         load_core=args.load_core,
         batch_name=args.batch_name,
