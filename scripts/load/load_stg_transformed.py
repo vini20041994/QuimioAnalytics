@@ -1,4 +1,3 @@
-import os
 import json
 from pathlib import Path
 from decimal import Decimal
@@ -6,26 +5,12 @@ from decimal import Decimal
 import pandas as pd
 import psycopg2
 from psycopg2.extras import Json
+from scripts.config import get_db_params
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent  # Raiz do projeto
 STAGING_DIR = BASE_DIR / "staging"
 EXCEL_SHEET_METADATA = STAGING_DIR / "excel_sheet_names.json"
-
-
-# =========================
-# CONFIG DB
-# =========================
-
-def db_params():
-
-    return dict(
-        host=os.getenv("DB_HOST", "localhost"),
-        port=int(os.getenv("DB_PORT", "5432")),
-        dbname=os.getenv("DB_NAME", "quimioanalytics"),
-        user=os.getenv("DB_USER", "quimio_user"),
-        password=os.getenv("DB_PASS", "quimio_pass_2024"),
-    )
 
 
 def _json_safe(value):
@@ -341,7 +326,7 @@ def main():
          sheet_names.get("compostos", "Compostos_final")]
     )
 
-    with psycopg2.connect(**db_params()) as conn:
+    with psycopg2.connect(**get_db_params()) as conn:
 
         with conn.cursor() as cur:
 

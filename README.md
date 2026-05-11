@@ -1,351 +1,237 @@
 # QuimioAnalytics
 
-Banco de dados unificado e pipeline ETL para integrar dados analíticos do IST Ambiental com bases químicas públicas.
+Plataforma de integração e enriquecimento de dados de metabolômica com pipeline ETL modular, banco PostgreSQL em camadas e ranqueamento probabilístico de candidatos.
 
-> Projeto Aplicado II · Ciência de Dados e Inteligência Artificial · SENAI Florianópolis · 2026/1
+Projeto Aplicado II · Ciência de Dados e Inteligência Artificial · SENAI Florianópolis · 2026/1
 
-## Sumário
+## 1. O que este projeto resolve
 
-- [Visão Geral](#visão-geral)
-- [Arquitetura](#arquitetura)
-- [Estrutura do Repositório](#estrutura-do-repositório)
-- [Pré-requisitos](#pré-requisitos)
-- [Início em 5 Minutos](#início-em-5-minutos)
-- [Configuração Rápida](#configuração-rápida)
-- [Como Executar](#como-executar)
-- [Pipelines Externos](#pipelines-externos)
-- [Top 5 Candidatos](#top-5-candidatos)
-- [Validação Rápida](#validação-rápida)
-- [Erros Comuns](#erros-comuns)
-- [Regras de Negócio](#regras-de-negócio)
-- [Consultas Úteis](#consultas-úteis)
-- [Status do Projeto](#status-do-projeto)
-- [Equipe](#equipe)
-- [Licença](#licença)
-
-## Visão Geral
-
-O IST Ambiental gera dados em alto volume por meio de planilhas internas de Identificação e Abundância. O QuimioAnalytics organiza esse fluxo em camadas de staging, processamento operacional e enriquecimento com referências externas.
+O projeto organiza dados laboratoriais internos e integra bases químicas públicas para apoiar análise preditiva.
 
 Objetivos principais:
 
-- Integrar dados internos sem perda de granularidade.
-- Ranquear candidatos com abordagem probabilística (Top 5).
-- Enriquecer compostos com fontes externas como PubChem, ChEBI e ChemSpider.
-- Preparar base consistente para matching, análise e dashboard.
+- Padronizar a ingestão de planilhas internas de identificação e abundância.
+- Produzir um Top 5 probabilístico por feature e aduto.
+- Enriquecer compostos com PubChem, ChEBI e ChemSpider.
+- Disponibilizar estrutura confiável para análises, APIs e dashboards.
 
-## Arquitetura
+## 2. Arquitetura do sistema
 
-O banco usa três schemas lógicos no PostgreSQL:
+O banco PostgreSQL é organizado em três schemas:
 
-| Schema | Função |
-|--------|--------|
-| `stg` | Persistência dos dados brutos e estágio intermediário |
-| `core` | Verdade operacional normalizada (features, candidatos, replicatas, abundância) |
-| `ref` | Referência externa (compostos, identificadores, taxonomia, usos e matches) |
+| Schema | Papel |
+|--------|-------|
+| stg | Dados brutos e dados intermediários |
+| core | Modelo operacional normalizado para análise |
+| ref | Referências externas e metadados de enriquecimento |
 
 Fluxo macro:
 
-```text
-Fontes internas/externas → stg → transformações → core / ref → ranking e análise
-```
-
-Entidades centrais de análise:
-
-- `core.ingestion_batch`
-- `core.feature`
-- `core.sample_group`
-- `core.replicate`
-- `core.abundance_measurement`
-- `core.candidate_identification`
-
-## Estrutura do Repositório
-
-```text
-QuimioAnalytics/
-├── database/
-│   ├── schema_postgresql_mvp_entrega2.sql
-│   └── migrations/
-├── dados_brutos/
-├── docs/
-│   ├── Database/
-│   └── ETL_Bases_Publicas/
-├── logs/
-├── scripts/
-│   ├── extract/
-│   ├── transform/
-│   ├── load/
-│   ├── run/
-│   └── features/
-├── staging/
-├── docker-compose.yml
-└── README.md
-```
-
-## Pré-requisitos
-
-- Linux/macOS/WSL com acesso a terminal
-- Python 3.10+ (recomendado: Python 3.12)
-- Docker Engine + Docker Compose v2 (comando `docker compose`)
-- Porta `5432` livre no host (ou ajuste no `docker-compose.yml`)
-- Ambiente virtual Python
-- Dependências Python: `pandas`, `pyarrow`, `psycopg2-binary`, `requests`, `openpyxl`, `lxml`, `scrapy`
-- Internet para integração externa (PubChem, ChEBI e ChemSpider)
-
-## Início em 5 Minutos
-
-Copie e execute os comandos abaixo na raiz do projeto:
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip
-pip install pandas pyarrow psycopg2-binary requests openpyxl lxml scrapy
-docker compose up -d
-docker exec -i quimio_postgres psql -U quimio_user -d quimioanalytics < database/schema_postgresql_mvp_entrega2.sql
-```
+Fontes internas e externas -> staging -> transformações -> core e ref -> ranking e análise
 
-Configure as variáveis de ambiente (mesmo terminal):
+## 3. Estrutura do repositório
 
-```bash
-export DB_HOST=localhost
-export DB_PORT=5432
-export DB_NAME=quimioanalytics
-export DB_USER=quimio_user
-export DB_PASS=quimio_pass_2024
-```
+Arquivos e pastas de maior interesse:
 
-Execute o fluxo completo:
+- [database](database): schema principal e migrations.
+- [scripts](scripts): código ETL e orquestração.
+- [scripts/run/run_pipeline_frontend.py](scripts/run/run_pipeline_frontend.py): orquestrador unificado.
+- [scripts/run/run_full_stack_etl.py](scripts/run/run_full_stack_etl.py): wrapper de compatibilidade para full stack.
+- [scripts/features/analytics.py](scripts/features/analytics.py): cálculo do ranking Top 5.
+- [docs](docs): documentação detalhada por tema.
+- [staging](staging): artefatos temporários e saídas intermediárias.
 
-```bash
-python3 scripts/run/run_etl.py
-python3 scripts/features/analitcs.py --load-core --batch-name TOP5_RANKING_MERGE
-python3 scripts/run/run_etl_top5_external.py --top5 staging/top5_candidates.parquet
-```
+## 4. Pré-requisitos
 
-## Configuração Rápida
+- Linux, macOS ou WSL.
+- Python 3.10+ (recomendado 3.12).
+- Docker + Docker Compose.
+- Acesso à internet para ETLs externos.
 
-1. Criar e ativar o ambiente virtual:
+Dependências Python principais:
 
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
+- pandas
+- pyarrow
+- psycopg2-binary
+- requests
+- openpyxl
+- lxml
+- scrapy
 
-2. Instalar dependências:
+## 5. Início rápido
 
-```bash
-pip install pandas pyarrow psycopg2-binary requests openpyxl lxml scrapy
-```
+### 5.0 Primeira execução em uma chamada (recomendado)
 
-3. Subir o banco com Docker Compose:
+Para máquina nova (Linux Debian/Ubuntu), use o script integrado:
 
-```bash
-docker compose up -d
-```
+	chmod +x scripts/run/install_system_prereqs.sh scripts/run/primeira_execucao.sh
+	./scripts/run/primeira_execucao.sh --db-pass <SUA_SENHA>
 
-4. Aplicar o schema principal:
+Com integração externa (PubChem, ChEBI e ChemSpider):
 
-```bash
-docker exec -i quimio_postgres psql -U quimio_user -d quimioanalytics < database/schema_postgresql_mvp_entrega2.sql
-```
+	./scripts/run/primeira_execucao.sh --db-pass <SUA_SENHA> --with-external
 
-5. (Opcional, recomendado) Aplicar migrations incrementais em ordem:
+Manual completo passo a passo:
 
-```bash
-for f in database/migrations/*.sql; do
-	echo "Aplicando $f"
-	docker exec -i quimio_postgres psql -U quimio_user -d quimioanalytics < "$f"
-done
-```
+- [docs/SETUP_PRIMEIRA_EXECUCAO.md](docs/SETUP_PRIMEIRA_EXECUCAO.md)
 
-6. Configurar variáveis de ambiente:
+### 5.1 Configuração manual mínima
 
-```bash
-export DB_HOST=localhost
-export DB_PORT=5432
-export DB_NAME=quimioanalytics
-export DB_USER=quimio_user
-export DB_PASS=quimio_pass_2024
-```
+	python3 -m venv venv
+	source venv/bin/activate
+	pip install --upgrade pip
+	pip install pandas pyarrow psycopg2-binary requests openpyxl lxml scrapy
+	docker compose up -d
+	docker exec -i quimio_postgres psql -U quimio_user -d quimioanalytics < database/schema_postgresql_mvp_entrega2.sql
 
-## Como Executar
+Variáveis de ambiente:
 
-### 1) ETL principal (dados internos)
+	export DB_HOST=localhost
+	export DB_PORT=5432
+	export DB_NAME=quimioanalytics
+	export DB_USER=quimio_user
+	export DB_PASS=<SUA_SENHA>
 
-Entrada padrão: `dados_brutos/merge_resultado.csv`
+### 5.2 Execução recomendada com orquestrador unificado
 
-```bash
-python3 scripts/run/run_etl.py
-```
+Execução completa (setup + banco + pipeline):
 
-Entrada interativa de planilhas:
+	python3 scripts/run/run_pipeline_frontend.py --full-stack --load-core --run-external
 
-```bash
-python3 scripts/run/run_etl_user_input.py
-```
+Execução somente pipeline (ambiente já pronto):
 
-### 2) Ranking Top 5
+	python3 scripts/run/run_pipeline_frontend.py --load-core --run-external
 
-Gerar Top 5 em parquet:
+Simulação sem executar comandos:
 
-```bash
-python3 scripts/features/analitcs.py
-```
+	python3 scripts/run/run_pipeline_frontend.py --full-stack --dry-run --json
 
-Gerar Top 5 e persistir no schema `core`:
+## 6. Formas de execução por cenário
 
-```bash
-python3 scripts/features/analitcs.py --load-core --batch-name TOP5_RANKING_MERGE
-```
+### Cenário A: laboratório ou novo ambiente
 
-### 3) Integração Top 5 com bases externas
+Use full stack para preparar tudo em uma chamada:
 
-Executa PubChem, ChEBI e ChemSpider usando o arquivo de Top 5 como entrada:
+	python3 scripts/run/run_pipeline_frontend.py --full-stack --load-core --run-external --db-pass <SUA_SENHA>
 
-```bash
-python3 scripts/run/run_etl_top5_external.py --top5 staging/top5_candidates.parquet
-```
+### Cenário B: banco e venv já existentes
 
-Selecionar fontes específicas:
+Rode somente ETL interno + ranking + integração externa:
 
-```bash
-python3 scripts/run/run_etl_top5_external.py --top5 staging/top5_candidates.parquet --sources pubchem chebi
-```
+	python3 scripts/run/run_pipeline_frontend.py --load-core --run-external
 
-Executar apenas PubChem:
+### Cenário C: apenas ETL interno e Top 5
 
-```bash
-python3 scripts/run/run_etl_top5_external.py --top5 staging/top5_candidates.parquet --sources pubchem
-```
+	python3 scripts/run/run_pipeline_frontend.py --load-core --no-external
 
-Observações operacionais:
+### Cenário D: entrada customizada de planilhas
 
-- Se PubChem falhar por DNS (`Temporary failure in name resolution`), aguarde e tente novamente.
-- O ChemSpider pode retornar 0 resultados para alguns nomes IUPAC complexos (limitação de scraping).
+	python3 scripts/run/run_pipeline_frontend.py \
+	  --identificacao /tmp/IDENTIFICACAO.xlsx \
+	  --abundancia /tmp/ABUND.xlsx \
+	  --compostos /tmp/Compostos_final.xlsx \
+	  --overwrite-inputs --load-core
 
-## Pipelines Externos
+## 7. Orquestradores e compatibilidade
 
-Execução consolidada por fonte:
+O projeto possui um ponto principal de execução:
 
-- **PubChem:**
+- [scripts/run/run_pipeline_frontend.py](scripts/run/run_pipeline_frontend.py)
 
-```bash
-python3 scripts/run/run_etl_pubchem.py <arquivo_entrada>
-```
+Compatibilidade com comandos antigos:
 
-- **ChEBI:**
+- [scripts/run/run_full_stack_etl.py](scripts/run/run_full_stack_etl.py) continua disponível e redireciona para o orquestrador unificado com o modo full stack.
 
-```bash
-python3 scripts/run/run_etl_chebi.py <arquivo_entrada>
-```
+## 8. Ranking Top 5
 
-- **ChemSpider:**
+Script principal do ranking:
 
-```bash
-python3 scripts/run/run_etl_chemspider.py --file <arquivo_entrada>
-python3 scripts/run/run_etl_chemspider.py --description Caffeine Aspirin
-```
+- [scripts/features/analytics.py](scripts/features/analytics.py)
 
-Documentação detalhada por fonte:
+Resumo do método:
 
-- `docs/ETL_Bases_Publicas/PUBCHEM.md`
-- `docs/ETL_Bases_Publicas/ETL_CHEBI.md`
-- `docs/ETL_Bases_Publicas/CHEMSPIDER.md`
+1. Normalização dos componentes técnicos de score.
+2. Score base pela média entre massa, fragmentação e isótopo.
+3. Modulação pelo score do software normalizado.
+4. Ajuste por abundância e estabilidade entre replicatas.
+5. Softmax por feature_group.
+6. Seleção dos 5 melhores candidatos por grupo.
 
-## Top 5 Candidatos
+Saída padrão:
 
-| Parâmetro | Valor padrão |
-|-----------|--------------|
-| Entrada | `dados_brutos/merge_resultado.csv` |
-| Saída | `staging/top5_candidates.parquet` |
-| Script | `scripts/features/analitcs.py` |
+- [staging/top5_candidates.parquet](staging/top5_candidates.parquet)
 
-Resumo do método probabilístico:
+## 9. ETLs externos
 
-1. Normalização dos componentes técnicos: `mass_error_ppm`, fragmentação, isótopo e score original.
-2. Score ponderado por critério analítico (erro de massa 40 %, fragmentação 30 %, score software 20 %, isótopo 10 %).
-3. Ajuste pelo fator de abundância e estabilidade entre replicatas.
-4. Conversão para probabilidade global via softmax.
-5. Seleção dos 5 candidatos com maior probabilidade por feature.
+Execução consolidada pelo orquestrador unificado:
 
-## Validação Rápida
+	python3 scripts/run/run_pipeline_frontend.py --run-external --sources pubchem chebi chemspider
 
-Após executar o fluxo, valide com:
+Execução por fonte:
 
-```sql
-SELECT COUNT(*) AS stg_identification_row FROM stg.identification_row;
-SELECT COUNT(*) AS stg_abundance_row FROM stg.abundance_row;
-SELECT COUNT(*) AS stg_curated_catalog_row FROM stg.curated_catalog_row;
+- PubChem: [scripts/run/run_etl_pubchem.py](scripts/run/run_etl_pubchem.py)
+- ChEBI: [scripts/run/run_etl_chebi.py](scripts/run/run_etl_chebi.py)
+- ChemSpider: [scripts/run/run_etl_chemspider.py](scripts/run/run_etl_chemspider.py)
 
-SELECT COUNT(*) AS stg_pubchem FROM stg.pubchem_compound_raw;
-SELECT COUNT(*) AS stg_chebi FROM stg.chebi_compound_raw;
-SELECT COUNT(*) AS stg_chemspider FROM stg.chemspider_compound_raw;
+## 10. Validação rápida
 
-SELECT COUNT(*) AS ref_curated_catalog_entry FROM ref.curated_catalog_entry;
-SELECT COUNT(*) AS ref_chemical_class FROM ref.chemical_class;
-SELECT COUNT(*) AS ref_compound_class FROM ref.compound_class;
-SELECT COUNT(*) AS ref_external_import_log FROM ref.external_import_log;
-```
+Consultas SQL recomendadas após execução:
 
-Critério de sucesso mínimo:
+	SELECT COUNT(*) AS stg_identification_row FROM stg.identification_row;
+	SELECT COUNT(*) AS stg_abundance_row FROM stg.abundance_row;
+	SELECT COUNT(*) AS stg_curated_catalog_row FROM stg.curated_catalog_row;
 
-- `stg.identification_row`, `stg.abundance_row` e `stg.curated_catalog_row` com registros > 0
-- `staging/top5_candidates.parquet` gerado
-- Pelo menos uma fonte externa carregada com sucesso (quando houver conectividade)
+	SELECT COUNT(*) AS stg_pubchem FROM stg.pubchem_compound_raw;
+	SELECT COUNT(*) AS stg_chebi FROM stg.chebi_compound_raw;
+	SELECT COUNT(*) AS stg_chemspider FROM stg.chemspider_compound_raw;
 
-## Erros Comuns
+	SELECT COUNT(*) AS core_feature FROM core.feature;
+	SELECT COUNT(*) AS core_candidate_identification FROM core.candidate_identification;
 
-1. Porta `5432` ocupada
-	- Sintoma: container PostgreSQL não sobe.
-	- Ação: liberar a porta ou remapear no `docker-compose.yml`.
+Critério mínimo:
 
-2. `ON CONFLICT` sem constraint única
-	- Sintoma: erro ao carregar dados externos.
-	- Ação: aplicar as migrations em `database/migrations/` na ordem.
+- Dados internos carregados em stg.
+- Top 5 gerado em staging.
+- Carga em core realizada quando load-core estiver ativo.
 
-3. Falha DNS no PubChem
-	- Sintoma: `Temporary failure in name resolution`.
-	- Ação: problema de rede externo; repetir execução depois.
+## 11. Erros comuns e solução
 
-4. ChemSpider retornando 0
-	- Sintoma: nenhuma linha em `stg.chemspider_compound_raw`.
-	- Ação: esperado para parte dos compostos com nomes complexos.
+1. Porta 5432 ocupada
+- Sintoma: PostgreSQL não sobe.
+- Solução: liberar ou remapear porta no compose.
 
-## Regras de Negócio
+2. DB_PASS ausente no modo full stack
+- Sintoma: execução interrompe no início.
+- Solução: exportar DB_PASS ou usar --db-pass.
 
-**Tratamento de replicatas:** as replicatas biológicas são agregadas pela média, o que reduz ruído e favorece a comparabilidade no ranking probabilístico. A estratégia pode ser alterada para manter replicatas separadas quando a análise individual for necessária.
+3. Falha de DNS no PubChem
+- Sintoma: erro de resolução de nome.
+- Solução: repetir execução quando a rede estabilizar.
 
-## Consultas Úteis
+4. ChemSpider sem resultados
+- Sintoma: zero linhas em stg.chemspider_compound_raw.
+- Solução: comportamento esperado para parte dos compostos.
 
-Contagem de registros por fonte:
+## 12. Documentação detalhada
 
-```sql
-SELECT COUNT(*) FROM stg.pubchem_compound_raw;
-SELECT COUNT(*) FROM stg.chebi_compound_raw;
-SELECT COUNT(*) FROM stg.chemspider_compound_raw;
-```
+Leia o índice de documentação em [docs/README.md](docs/README.md).
 
-Verificação rápida — PubChem:
+Guias importantes:
 
-```sql
-SELECT pubchem_cid, molecular_formula, inchikey
-FROM stg.pubchem_compound_raw
-LIMIT 10;
-```
+- [docs/Database/SETUP_DATABASE.md](docs/Database/SETUP_DATABASE.md)
+- [docs/ETL_Bases_Publicas/PUBCHEM.md](docs/ETL_Bases_Publicas/PUBCHEM.md)
+- [docs/ETL_Bases_Publicas/ETL_CHEBI.md](docs/ETL_Bases_Publicas/ETL_CHEBI.md)
+- [docs/ETL_Bases_Publicas/CHEMSPIDER.md](docs/ETL_Bases_Publicas/CHEMSPIDER.md)
+- [docs/Modelagem_Lógica_e_Schema/Modelagem_logica_e_schema.md](docs/Modelagem_Lógica_e_Schema/Modelagem_logica_e_schema.md)
 
-## Status do Projeto
+## 13. Status do projeto
 
-- [x] Diagnóstico das fontes internas
-- [x] Modelagem lógica e schema físico (`stg`, `core`, `ref`)
-- [x] ETL principal para planilhas internas
-- [x] Ranking Top 5 com exportação e carga opcional em `core`
-- [x] ETL por fonte para PubChem, ChEBI e ChemSpider
-- [x] Runner integrado Top 5 → bases externas
-- [ ] Matching consolidado `core` × `ref`
-- [ ] Dashboard analítico
+- ETL interno e staging operacional.
+- Ranking Top 5 em produção no pipeline.
+- Integração externa com PubChem, ChEBI e ChemSpider.
+- Runner unificado para front-end e full stack.
 
-## Equipe
+## 14. Equipe
 
 | Membro | Frente principal |
 |--------|------------------|
@@ -354,6 +240,6 @@ LIMIT 10;
 | Vinícius Joacir dos Anjos | Integração com bases públicas |
 | Samuel Silva de Rezende | Documentação e arquitetura |
 
-## Licença
+## 15. Licença
 
-Uso acadêmico interno — SENAI Florianópolis — 2026.
+Uso acadêmico interno. SENAI Florianópolis, 2026.

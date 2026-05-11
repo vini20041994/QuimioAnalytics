@@ -78,7 +78,7 @@ Host:     localhost
 Port:     5432
 Database: quimioanalytics
 User:     quimio_user
-Password: quimio_pass_2024
+Password: valor de DB_PASS
 ```
 
 ### Passo 3: Testar e Conectar
@@ -133,6 +133,7 @@ quimioanalytics/
 
 ```python
 import psycopg2
+import os
 from psycopg2.extras import RealDictCursor
 
 conn = psycopg2.connect(
@@ -140,7 +141,7 @@ conn = psycopg2.connect(
     port=5432,
     database='quimioanalytics',
     user='quimio_user',
-    password='quimio_pass_2024'
+    password=os.getenv('DB_PASS')
 )
 
 # Exemplo de consulta
@@ -157,8 +158,9 @@ conn.close()
 
 ```python
 from sqlalchemy import create_engine, text
+import os
 
-DATABASE_URL = "postgresql://quimio_user:quimio_pass_2024@localhost:5432/quimioanalytics"
+DATABASE_URL = f"postgresql://quimio_user:{os.getenv('DB_PASS')}@localhost:5432/quimioanalytics"
 engine = create_engine(DATABASE_URL)
 
 with engine.connect() as conn:

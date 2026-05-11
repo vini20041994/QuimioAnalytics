@@ -4,19 +4,18 @@ Insere dados em stg.chebi_compound_raw e em ref.external_compound / ref.*
 """
 
 import json
-import os
 import sys
 from pathlib import Path
 
 import pandas as pd
 import psycopg2
 from psycopg2.extras import Json
+from scripts.config import get_db_params
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 STAGING_DIR = PROJECT_ROOT / "staging"
 
-sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "load"))
-from external_load_utils import (
+from scripts.load.external_load_utils import (
     get_source_id,
     get_or_create_external_compound,
     write_external_identifier,
@@ -27,20 +26,14 @@ from external_load_utils import (
     get_or_create_chemical_class,
     write_compound_class,
     write_import_log,
+    get_or_create_taxonomy_node,
+    write_compound_taxonomy,
+    get_or_create_pathway,
+    write_compound_pathway,
+    write_biological_origin,
 )
 
 _CHEBI_SOURCE_NAME = "ChEBI_OLS_API"
-
-
-def db_params():
-    """Parâmetros de conexão com o banco."""
-    return dict(
-        host=os.getenv("DB_HOST", "localhost"),
-        port=int(os.getenv("DB_PORT", "5432")),
-        dbname=os.getenv("DB_NAME", "quimioanalytics"),
-        user=os.getenv("DB_USER", "quimio_user"),
-        password=os.getenv("DB_PASS", "quimio_pass_2024"),
-    )
 
 
 def get_or_create_batch(cur, batch_name):
@@ -78,7 +71,7 @@ def is_valid(value):
         return False
     try:
         return not pd.isna(value)
-    except Exception:
+    except (TypeError, ValueError):
         return True
 
 
@@ -380,10 +373,49 @@ def _upsert_chebi_to_ref(cur, row, source_id):
                 write_compound_cross_reference(cur, ext_id, "ChEBI_relation", str(rel),
                                                evidence_level="ontology")
 
+    # Chemical roles → ref.taxonomy_node + ref.compound_taxonomy
+    chem_roles_tax = parse_json_field(row.get("chemical_role"))
+    if isinstance(chem_roles_tax, list):
+        for role in chem_roles_tax:
+            if role:
+                taxon_id = get_or_create_taxonomy_node(
+                    cur, source_id, str(role), taxon_rank="chemical_role"
+                )
+                write_compound_taxonomy(
+                    cur, ext_id, taxon_id,
+                    relationship_type="has_chemical_role",
+                    evidence_note=_CHEBI_SOURCE_NAME,
+                )
+
+    # Biological roles → ref.taxonomy_node + ref.compound_taxonomy + ref.biological_origin
+    bio_roles_tax = parse_json_field(row.get("biological_roles"))
+    if isinstance(bio_roles_tax, list):
+        for role in bio_roles_tax:
+            if role:
+                taxon_id = get_or_create_taxonomy_node(
+                    cur, source_id, str(role), taxon_rank="biological_role"
+                )
+                write_compound_taxonomy(
+                    cur, ext_id, taxon_id,
+                    relationship_type="has_biological_role",
+                    evidence_note=_CHEBI_SOURCE_NAME,
+                )
+                write_biological_origin(cur, ext_id, organism_name=str(role))
+
+    # Biological roles → ref.pathway + ref.compound_pathway
+    # (roles biológicas do ChEBI representam contexto metabólico/funcional)
+    if isinstance(bio_roles_tax, list):
+        for role in bio_roles_tax:
+            if role:
+                pathway_id = get_or_create_pathway(
+                    cur, source_id, pathway_name=str(role)
+                )
+                write_compound_pathway(cur, ext_id, pathway_id)
+
 
 def load_chebi(df, batch_name="ChEBI OLS Extract", source_file="chebi_raw.parquet"):
     """Carrega DataFrame do ChEBI em stg.chebi_compound_raw e em ref.*"""
-    with psycopg2.connect(**db_params()) as conn:
+    with psycopg2.connect(**get_db_params()) as conn:
         with conn.cursor() as cur:
             batch_id = get_or_create_batch(cur, batch_name)
             print(f"Usando batch_id: {batch_id}")
@@ -398,6 +430,7 @@ def load_chebi(df, batch_name="ChEBI OLS Extract", source_file="chebi_raw.parque
 
             for idx, row in df.iterrows():
                 try:
+                    cur.execute("SAVEPOINT sp_chebi_row")
                     inserted = upsert_chebi_compound(cur, row, batch_id, source_file)
                     if inserted:
                         if source_id is not None:
@@ -408,7 +441,8 @@ def load_chebi(df, batch_name="ChEBI OLS Extract", source_file="chebi_raw.parque
                         print(f"  Processados: {count}/{len(df)}")
                         conn.commit()
 
-                except Exception as exc:
+                except (psycopg2.Error, ValueError, TypeError) as exc:
+                    cur.execute("ROLLBACK TO SAVEPOINT sp_chebi_row")
                     errors += 1
                     print(f"  Erro no registro {idx}: {exc}")
                     if errors > 10:

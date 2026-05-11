@@ -1,125 +1,77 @@
-# ChemSpider
+# ETL ChemSpider
 
-## Visão Geral
+## 1. Objetivo
 
-Esta documentação descreve o pipeline ETL do ChemSpider no QuimioAnalytics.
+Este guia descreve o pipeline ChemSpider no QuimioAnalytics para extração por scraping, transformação e carga em staging.
 
 Fluxo:
-ChemSpider (scraping) -> staging/chemspider_raw.parquet -> staging/chemspider_trusted.parquet -> stg.chemspider_compound_raw
 
-## Escopo do Pipeline
+Entrada -> Extract (Scrapy) -> Transform -> Load -> stg.chemspider_compound_raw
 
-- Extract: coleta dados da página do composto no ChemSpider usando Scrapy
-- Transform: padroniza nomes de colunas e tipos
-- Load: grava na tabela stg.chemspider_compound_raw com upsert por chemspider_id
-- Operação: pode rodar ponta a ponta com um único comando
+## 2. Quando usar este pipeline
 
-## Execução
+Use ChemSpider quando você precisa:
 
-### Pré-requisitos
+- Enriquecer compostos por CSID e identificadores associados.
+- Complementar cobertura de fontes externas para compostos sem match em outras bases.
 
-- Python 3.10+
-- Ambiente virtual com pandas, pyarrow, scrapy e psycopg2-binary
-- Banco PostgreSQL iniciado
+## 3. Pré-requisitos
 
-Instalação de dependências:
+- Ambiente virtual ativo.
+- Dependências instaladas: pandas, pyarrow, scrapy, psycopg2-binary.
+- Banco PostgreSQL em execução.
 
-```bash
-source venv/bin/activate
-pip install pandas pyarrow scrapy psycopg2-binary
-```
+Instalação rápida:
 
-### Pipeline completo
+    source venv/bin/activate
+    pip install pandas pyarrow scrapy psycopg2-binary
 
-```bash
-source venv/bin/activate
-python3 run_etl_chemspider.py --file compound_list.txt
-```
+## 4. Execução recomendada
 
-Outros exemplos:
+### 4.1 Via orquestrador unificado
 
-```bash
-python3 run_etl_chemspider.py --description Caffeine Aspirin
-python3 run_etl_chemspider.py --compound_id 2424 171
-```
+    python3 scripts/run/run_pipeline_frontend.py --run-external --sources chemspider
 
-### Execução passo a passo
+### 4.2 Via runner da fonte
 
-```bash
-python3 scripts/extract/extract_chemspider.py --file compound_list.txt
-python3 scripts/transform/transform_chemspider.py
-python3 scripts/load/load_chemspider.py
-```
+    python3 scripts/run/run_etl_chemspider.py --file chemspider_inputs.txt
 
-## Formatos de Entrada do Extract
+Exemplos alternativos:
 
-O extrator aceita:
+    python3 scripts/run/run_etl_chemspider.py --description Caffeine Aspirin
+    python3 scripts/run/run_etl_chemspider.py --compound_id 2424 171
 
-- --description: nomes/textos de compostos
-- --compound_id: IDs ChemSpider (CSID)
-- --file: arquivo com um item por linha (nome ou ID)
+## 5. Execução etapa por etapa
 
-Exemplo:
+    python3 scripts/extract/extract_chemspider.py --file chemspider_inputs.txt
+    python3 scripts/transform/transform_chemspider.py
+    python3 scripts/load/load_chemspider.py
 
-```bash
-python3 scripts/extract/extract_chemspider.py --description Caffeine
-python3 scripts/extract/extract_chemspider.py --compound_id 2424
-python3 scripts/extract/extract_chemspider.py --file chemspider_inputs.txt
-```
+## 6. Entradas aceitas
 
-## Dados Extraídos
+- --description: nomes de compostos.
+- --compound_id: IDs ChemSpider.
+- --file: arquivo texto com um item por linha.
 
-Campos principais extraídos:
+## 7. Saídas e tabela de destino
 
-- ChemSpider_ID
+Arquivos gerados:
+
+- staging/chemspider_raw.parquet
+- staging/chemspider_trusted.parquet
+
+Tabela de carga:
+
+- stg.chemspider_compound_raw
+
+Migração relacionada:
+
+- database/migrations/007_update_chemspider_staging_table.sql
+
+## 8. Campos principais extraídos
+
+- chemspider_id
 - compound_name
-- molecular_formula
-- InChI
-- InChIKey
-- SMILES
-- PubChem_CID
-- ChEMBL_ID
-- DrugBank_ID
-- ChEBI_ID
-- ChEBI_IDs
-- HMDB_ID
-- FooDB_ID
-- LOTUS_ID
-- ClassyFire_ID
-- search_description
-
-## Transformação
-
-Arquivo: scripts/transform/transform_chemspider.py
-
-A transformação:
-
-- renomeia colunas para padrão snake_case
-- converte colunas JSON (ex: chebi_ids)
-- inclui source_name = ChemSpider
-- salva em staging/chemspider_trusted.parquet
-
-## Carga no Banco
-
-Arquivo: scripts/load/load_chemspider.py
-
-Características da carga:
-
-- destino: stg.chemspider_compound_raw
-- cria/usa batch_id em core.ingestion_batch
-- upsert por chemspider_id com ON CONFLICT
-- preenche json_payload para auditoria/reprocessamento
-- preenche chebi_ids_text para leitura direta no SQL
-
-## Estrutura da Tabela Staging
-
-A tabela stg.chemspider_compound_raw contém, entre outras, as colunas:
-
-- batch_id
-- source_file_name
-- chemspider_id (UNIQUE)
-- compound_name
-- search_description
 - molecular_formula
 - inchi
 - inchikey
@@ -128,77 +80,43 @@ A tabela stg.chemspider_compound_raw contém, entre outras, as colunas:
 - chembl_id
 - drugbank_id
 - chebi_id
-- chebi_ids (JSONB)
+- chebi_ids
 - hmdb_id
 - foodb_id
 - lotus_id
 - classyfire_id
-- chebi_ids_text
-- json_payload
-- loaded_at
 
-Migration relacionada:
+## 9. Validação rápida
 
-- database/migrations/007_update_chemspider_staging_table.sql
+    SELECT COUNT(*) AS total FROM stg.chemspider_compound_raw;
 
-## Consultas Úteis
+    SELECT
+        chemspider_id,
+        compound_name,
+        molecular_formula,
+        inchikey,
+        pubchem_cid,
+        loaded_at
+    FROM stg.chemspider_compound_raw
+    ORDER BY loaded_at DESC
+    LIMIT 20;
 
-```sql
-SELECT COUNT(*) AS total
-FROM stg.chemspider_compound_raw;
+## 10. Troubleshooting
 
-SELECT
-    chemspider_id,
-    compound_name,
-    molecular_formula,
-    inchikey,
-    pubchem_cid,
-    loaded_at
-FROM stg.chemspider_compound_raw
-ORDER BY loaded_at DESC
-LIMIT 20;
+1. Erro de coluna/tabela
 
-SELECT
-    chemspider_id,
-    chebi_ids,
-    chebi_ids_text
-FROM stg.chemspider_compound_raw
-WHERE chebi_ids IS NOT NULL
-LIMIT 10;
-```
+    docker exec -i quimio_postgres psql -U quimio_user -d quimioanalytics < database/migrations/007_update_chemspider_staging_table.sql
 
-## Troubleshooting
+2. Dependência Scrapy ausente
 
-### Erro de tabela/coluna ausente
+    source venv/bin/activate
+    pip install scrapy
 
-Aplique a migration:
+3. Sem resultados para alguns compostos
 
-```bash
-docker exec -i quimio_postgres psql -U quimio_user -d quimioanalytics < database/migrations/007_update_chemspider_staging_table.sql
-```
+- Isso pode acontecer com descrições ambíguas ou nomes muito complexos.
+- Tente por compound_id quando disponível.
 
-### Erro de dependência Scrapy
+4. Ver estrutura da tabela
 
-```bash
-source venv/bin/activate
-pip install scrapy
-```
-
-### Verificar estrutura da tabela
-
-```bash
-docker exec -i quimio_postgres psql -U quimio_user -d quimioanalytics -c "\d stg.chemspider_compound_raw"
-```
-
-## Saída para Pipeline
-
-O load imprime resumo em JSON:
-
-```json
-{
-  "chemspider_loaded": 1,
-  "errors": 0,
-  "total": 1,
-  "table": "stg.chemspider_compound_raw"
-}
-```
+    docker exec -i quimio_postgres psql -U quimio_user -d quimioanalytics -c "\d stg.chemspider_compound_raw"

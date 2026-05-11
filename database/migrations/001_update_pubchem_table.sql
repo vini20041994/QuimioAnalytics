@@ -56,11 +56,11 @@ ON stg.pubchem_compound_raw (inchikey);
 CREATE INDEX IF NOT EXISTS idx_pubchem_raw_formula 
 ON stg.pubchem_compound_raw (molecular_formula);
 
-CREATE INDEX IF NOT EXISTS idx_pubchem_raw_smiles 
-ON stg.pubchem_compound_raw USING gin (canonical_smiles gin_trgm_ops);
-
 -- Criar extensão para busca por similaridade (se não existir)
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE INDEX IF NOT EXISTS idx_pubchem_raw_smiles 
+ON stg.pubchem_compound_raw USING gin (canonical_smiles gin_trgm_ops);
 
 -- Comentários explicativos
 COMMENT ON TABLE stg.pubchem_compound_raw IS 

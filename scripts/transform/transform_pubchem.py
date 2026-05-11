@@ -21,7 +21,7 @@ def safe_json_parse(value):
     if isinstance(value, str):
         try:
             return json.loads(value)
-        except:
+        except (json.JSONDecodeError, TypeError, ValueError):
             return None
     return None
 

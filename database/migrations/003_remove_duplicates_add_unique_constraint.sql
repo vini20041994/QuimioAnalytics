@@ -19,8 +19,7 @@ HAVING COUNT(*) > 1;
 DELETE FROM stg.pubchem_compound_raw a
 USING stg.pubchem_compound_raw b
 WHERE a.pubchem_raw_id > b.pubchem_raw_id
-  AND a.pubchem_cid = b.pubchem_cid
-  AND a.batch_id = b.batch_id;
+    AND a.pubchem_cid = b.pubchem_cid;
 
 -- Verificar se duplicatas foram removidas
 SELECT 

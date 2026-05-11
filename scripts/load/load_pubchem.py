@@ -3,19 +3,18 @@ Load PubChem - Carrega dados do PubChem no PostgreSQL
 Insere dados em stg.pubchem_compound_raw e em ref.external_compound / ref.*
 """
 
-import os
 import json
 import pandas as pd
 import psycopg2
 from psycopg2.extras import Json
 from pathlib import Path
 import sys
+from scripts.config import get_db_params
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 STAGING_DIR = PROJECT_ROOT / "staging"
 
-sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "load"))
-from external_load_utils import (
+from scripts.load.external_load_utils import (
     get_source_id,
     get_or_create_external_compound,
     write_external_identifier,
@@ -36,17 +35,6 @@ _NUMERIC_PROPERTIES = [
     ("rotatable_bond_count", None),
     ("heavy_atom_count", None),
 ]
-
-
-def db_params():
-    """Parâmetros de conexão com o banco"""
-    return dict(
-        host=os.getenv("DB_HOST", "localhost"),
-        port=int(os.getenv("DB_PORT", "5432")),
-        dbname=os.getenv("DB_NAME", "quimioanalytics"),
-        user=os.getenv("DB_USER", "quimio_user"),
-        password=os.getenv("DB_PASS", "quimio_pass_2024"),
-    )
 
 
 def get_or_create_batch(cur, batch_name):
@@ -103,7 +91,7 @@ def insert_pubchem_compound(cur, row, batch_id, source_file):
         # Verificar NaN sem problema de array
         try:
             return not pd.isna(val)
-        except:
+        except (TypeError, ValueError):
             return True
     
     # Helper para converter valores para Python nativo (JSON-serializable)
@@ -125,8 +113,8 @@ def insert_pubchem_compound(cur, row, batch_id, source_file):
         else:
             try:
                 synonyms_json = Json(json_safe(json.loads(str(syn_val))))
-            except:
-                pass
+            except (json.JSONDecodeError, TypeError, ValueError):
+                synonyms_json = None
     
     classification_json = None
     class_val = row.get("classification")
@@ -137,8 +125,8 @@ def insert_pubchem_compound(cur, row, batch_id, source_file):
         else:
             try:
                 classification_json = Json(json_safe(json.loads(str(class_val))))
-            except:
-                pass
+            except (json.JSONDecodeError, TypeError, ValueError):
+                classification_json = None
     
     cur.execute(
         """
@@ -255,7 +243,7 @@ def _upsert_pubchem_to_ref(cur, row, source_id):
             return None
         try:
             return None if pd.isna(v) else v
-        except Exception:
+        except (TypeError, ValueError):
             return v
 
     def _safe_list(v):
@@ -266,13 +254,13 @@ def _upsert_pubchem_to_ref(cur, row, source_id):
         try:
             if pd.isna(v):
                 return []
-        except Exception:
+        except (TypeError, ValueError):
             pass
         if isinstance(v, str):
             try:
                 parsed = json.loads(v)
                 return parsed if isinstance(parsed, list) else []
-            except Exception:
+            except (json.JSONDecodeError, TypeError, ValueError):
                 return []
         return []
 
@@ -322,7 +310,7 @@ def _upsert_pubchem_to_ref(cur, row, source_id):
 def load_pubchem(df, batch_name="PubChem API Extract", source_file="pubchem_trusted.parquet"):
     """Carrega DataFrame do PubChem em stg.pubchem_compound_raw e em ref.*"""
 
-    with psycopg2.connect(**db_params()) as conn:
+    with psycopg2.connect(**get_db_params()) as conn:
         with conn.cursor() as cur:
             batch_id = get_or_create_batch(cur, batch_name)
             print(f"Usando batch_id: {batch_id}")
@@ -337,6 +325,7 @@ def load_pubchem(df, batch_name="PubChem API Extract", source_file="pubchem_trus
 
             for idx, row in df.iterrows():
                 try:
+                    cur.execute("SAVEPOINT sp_pubchem_row")
                     insert_pubchem_compound(cur, row, batch_id, source_file)
                     if source_id is not None:
                         _upsert_pubchem_to_ref(cur, row, source_id)
@@ -346,7 +335,8 @@ def load_pubchem(df, batch_name="PubChem API Extract", source_file="pubchem_trus
                         print(f"  Processados: {count}/{len(df)}")
                         conn.commit()
 
-                except Exception as e:
+                except (psycopg2.Error, ValueError, TypeError) as e:
+                    cur.execute("ROLLBACK TO SAVEPOINT sp_pubchem_row")
                     errors += 1
                     print(f"  Erro no registro {idx}: {e}")
                     if errors > 10:
@@ -390,11 +380,11 @@ def main():
     
     # Estatísticas
     print(f"\n{'='*60}")
-    print(f"CARGA CONCLUÍDA")
+    print("CARGA CONCLUÍDA")
     print(f"{'='*60}")
     print(f"Total inserido: {inserted}")
     print(f"Erros: {errors}")
-    print(f"Tabela: stg.pubchem_compound_raw")
+    print("Tabela: stg.pubchem_compound_raw")
     print(f"{'='*60}\n")
     
     # Output JSON para pipeline

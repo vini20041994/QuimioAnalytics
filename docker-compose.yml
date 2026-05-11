@@ -5,9 +5,9 @@ services:
     image: postgres:15-alpine
     container_name: quimio_postgres
     environment:
-      POSTGRES_DB: quimioanalytics
-      POSTGRES_USER: quimio_user
-      POSTGRES_PASSWORD: quimio_pass_2024
+      POSTGRES_DB: ${DB_NAME:-quimioanalytics}
+      POSTGRES_USER: ${DB_USER:-quimio_user}
+      POSTGRES_PASSWORD: ${DB_PASS}
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "5432:5432"

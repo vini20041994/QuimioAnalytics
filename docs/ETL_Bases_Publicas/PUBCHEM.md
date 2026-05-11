@@ -1,78 +1,62 @@
-# PubChem
+# ETL PubChem
 
-## Visão Geral
+## 1. Objetivo
 
-Esta documentação consolida o fluxo de extração, transformação e carga do PubChem no QuimioAnalytics.
+Este guia explica como executar o enriquecimento com PubChem no QuimioAnalytics, desde a entrada até a carga em staging.
 
-Fluxo: API PubChem -> staging/pubchem_raw.parquet -> staging/pubchem_trusted.parquet -> stg.pubchem_compound_raw
+Fluxo:
 
-## Escopo do Pipeline
+Entrada -> Extract -> Transform -> Load -> stg.pubchem_compound_raw
 
-- Extract: consulta a API do PubChem com fallback entre múltiplos identificadores
-- Transform: normaliza nomes de colunas, tipos e estruturas como sinônimos e payloads
-- Load: grava os dados na tabela stg.pubchem_compound_raw com suporte a JSONB
-- Operação: pode rodar ponta a ponta com um único comando ou etapa por etapa
+## 2. Quando usar este pipeline
 
-## Execução
+Use PubChem quando você precisa:
 
-### Pré-requisitos
+- Resolver identificadores químicos (CID, InChIKey, SMILES).
+- Enriquecer propriedades físico-químicas.
+- Adicionar sinônimos e metadados externos.
 
-- Python 3.8+
-- Ambiente virtual com pandas, pyarrow, requests, psycopg2-binary e openpyxl
-- Banco PostgreSQL iniciado via docker-compose ou scripts/manage_db.py
+## 3. Pré-requisitos
 
-### Pipeline completo
+- Ambiente virtual ativo.
+- Dependências instaladas: pandas, pyarrow, requests, psycopg2-binary, openpyxl.
+- Banco PostgreSQL em execução.
 
-```bash
-source venv/bin/activate
-python3 run_etl_pubchem.py <arquivo_de_entrada>
-```
+Instalação rápida:
+
+    source venv/bin/activate
+    pip install pandas pyarrow requests psycopg2-binary openpyxl
+
+## 4. Execução recomendada
+
+### 4.1 Via orquestrador unificado
+
+    python3 scripts/run/run_pipeline_frontend.py --run-external --sources pubchem
+
+### 4.2 Via runner da fonte
+
+    python3 scripts/run/run_etl_pubchem.py <arquivo_entrada>
 
 Exemplos:
 
-```bash
-python3 run_etl_pubchem.py compound_list.txt
-python3 run_etl_pubchem.py compound_list_test.txt
-python3 run_etl_pubchem.py staging/identificacao_trusted.parquet
-```
+    python3 scripts/run/run_etl_pubchem.py compound_list.txt
+    python3 scripts/run/run_etl_pubchem.py staging/top5_external_input.csv
 
-### Execução passo a passo
+## 5. Execução etapa por etapa
 
-```bash
-python3 scripts/extract/extract_pubchem.py compound_list.txt
-python3 scripts/transform/transform_pubchem.py
-python3 scripts/load/load_pubchem.py
-```
+    python3 scripts/extract/extract_pubchem.py <arquivo_entrada>
+    python3 scripts/transform/transform_pubchem.py
+    python3 scripts/load/load_pubchem.py
 
-## Formatos de Entrada
+## 6. Entradas aceitas
 
-### TXT
+- TXT: um composto por linha.
+- CSV: colunas como nome, fórmula, InChIKey ou SMILES.
+- Parquet: arquivos de staging já processados.
 
-Uma linha por composto:
+## 7. Estratégia de busca
 
-```text
-Glucose
-Caffeine
-Aspirin
-```
-
-### CSV
-
-Arquivos com colunas como nome, fórmula, InChIKey e SMILES:
-
-```csv
-compound_name,molecular_formula,inchikey,smiles
-Glucose,C6H12O6,WQZGKKKJIJFFOK-GASJEMHNSA-N,C(C1C(C(C(C(O1)O)O)O)O)O
-Caffeine,C8H10N4O2,RYYVLZVUVIJVGH-UHFFFAOYSA-N,CN1C=NC2=C1C(=O)N(C(=O)N2C)C
-```
-
-### Parquet
-
-Também aceita arquivos já gerados no staging, como staging/identificacao_trusted.parquet.
-
-## Estratégia de Busca
-
-O extrator tenta localizar compostos com fallback nesta ordem:
+O extractor tenta, em ordem:
 
 1. InChIKey
 2. SMILES
@@ -80,198 +64,65 @@ O extrator tenta localizar compostos com fallback nesta ordem:
 4. Fórmula molecular
 5. Sinônimos
 
-Isso melhora a taxa de acerto quando a entrada não possui um identificador canônico.
+Isso melhora a taxa de acerto em entradas heterogêneas.
 
-## Dados Extraídos
+## 8. Saídas e tabela de destino
 
-### Identificadores
-
-- CID
-- InChI
-- InChIKey
-- Canonical SMILES
-- Isomeric SMILES
-- Nome IUPAC
-
-### Propriedades
-
-- Fórmula molecular
-- Peso molecular
-- Massa exata
-- XLogP
-- TPSA
-- Complexidade
-- Carga
-
-### Contadores estruturais
-
-- HBondDonorCount
-- HBondAcceptorCount
-- RotatableBondCount
-- HeavyAtomCount
-
-### Dados adicionais
-
-- Até 15 sinônimos por composto
-- Classificação química quando disponível
-- Descrição textual do PubChem
-- Payload bruto da API para auditoria e reprocessamento
-
-## Arquivos Gerados
-
-### Durante o extract
+Arquivos gerados:
 
 - staging/pubchem_raw.parquet
 - staging/pubchem_raw.csv
+- staging/pubchem_trusted.parquet
 - logs/pubchem_extract_YYYYMMDD_HHMMSS.log
 
-### Durante o transform
+Tabela de carga:
 
-- staging/pubchem_trusted.parquet
-
-### Após o load
-
-- Registros persistidos em stg.pubchem_compound_raw
-
-## Estrutura no Banco
-
-A carga é feita na tabela stg.pubchem_compound_raw, que armazena:
-
-- metadados da extração
-- identificadores químicos
-- propriedades moleculares e físico-químicas
-- sinônimos e classificação em JSONB
-- payload original da API
-
-Índices principais:
-
-- pubchem_cid
-- inchikey
-- molecular_formula
+- stg.pubchem_compound_raw
 
 Migração relacionada:
 
 - database/migrations/001_update_pubchem_table.sql
 
-## Consultas Úteis
+## 9. Validação rápida
 
-```sql
-SELECT COUNT(*) AS total FROM stg.pubchem_compound_raw;
+    SELECT COUNT(*) AS total FROM stg.pubchem_compound_raw;
 
-SELECT
-    pubchem_cid,
-    molecular_formula,
-    molecular_weight,
-    inchikey,
-    search_method,
-    loaded_at
-FROM stg.pubchem_compound_raw
-ORDER BY loaded_at DESC
-LIMIT 10;
+    SELECT
+        pubchem_cid,
+        molecular_formula,
+        molecular_weight,
+        inchikey,
+        search_method,
+        loaded_at
+    FROM stg.pubchem_compound_raw
+    ORDER BY loaded_at DESC
+    LIMIT 10;
 
-SELECT
-    search_method,
-    COUNT(*) AS total
-FROM stg.pubchem_compound_raw
-GROUP BY search_method
-ORDER BY total DESC;
+## 10. Performance
 
-SELECT
-    pubchem_cid,
-    synonym_count,
-    synonyms
-FROM stg.pubchem_compound_raw
-WHERE pubchem_cid = 1983;
-```
+Configuração operacional padrão:
 
-## Performance e Limites
+- Limite alvo: 5 requests por segundo
+- Retry: 3 tentativas
+- Delay: 200 ms
 
-- Limite alvo: 5 requisições por segundo
-- Retry automático: 3 tentativas
-- Delay entre requisições: 200 ms por padrão
+## 11. Troubleshooting
 
-Estimativas observadas:
+1. Dependências ausentes
 
-- 10 compostos: 2 a 3 minutos
-- 50 compostos: 10 a 15 minutos
-- 100 compostos: 20 a 30 minutos
-- 1000 compostos: 3 a 5 horas
+    source venv/bin/activate
+    pip install pandas pyarrow requests psycopg2-binary openpyxl
 
-Para lotes grandes, prefira execução noturna ou processamento em blocos menores.
+2. Banco indisponível
 
-## Troubleshooting
+    python3 scripts/manage_db.py start
+    python3 scripts/manage_db.py status
 
-### Dependências ausentes
+3. Problemas de rede/DNS
 
-```bash
-source venv/bin/activate
-pip install pandas pyarrow requests psycopg2-binary openpyxl
-```
+- Tente novamente em outro momento.
+- Se necessário, aumente timeout e delay no extractor.
 
-### Banco indisponível
+4. Estrutura da tabela
 
-```bash
-python3 scripts/manage_db.py start
-python3 scripts/manage_db.py status
-```
-
-### Timeout ou instabilidade de rede
-
-Ajuste as constantes no extrator para aumentar timeout e reduzir agressividade de chamadas.
-
-- TIMEOUT: aumentar de 15 para 30
-- RATE_LIMIT_DELAY: aumentar de 0.2 para 0.3
-
-### Validar a estrutura da tabela
-
-```bash
-docker exec quimio_postgres psql -U quimio_user -d quimioanalytics -c "\d stg.pubchem_compound_raw"
-```
-
-### Reaplicar migração
-
-```bash
-docker exec -i quimio_postgres psql -U quimio_user -d quimioanalytics < database/migrations/001_update_pubchem_table.sql
-```
-
-## Integração com o Pipeline Principal
-
-Fluxo recomendado:
-
-1. Rodar o ETL principal com run_etl.py
-2. Extrair identificadores ou fórmulas de stg.identification_row
-3. Executar o enriquecimento com run_etl_pubchem.py
-4. Validar o conteúdo carregado na staging do PubChem
-
-Exemplo:
-
-```bash
-python3 run_etl.py
-
-docker exec quimio_postgres psql -U quimio_user -d quimioanalytics -c "
-COPY (
-    SELECT DISTINCT molecular_formula
-    FROM stg.identification_row
-    WHERE molecular_formula IS NOT NULL
-    LIMIT 100
-) TO STDOUT
-" > formulas_to_enrich.txt
-
-python3 run_etl_pubchem.py formulas_to_enrich.txt
-```
-
-## Arquivos Relacionados
-
-- run_etl_pubchem.py
-- scripts/extract/extract_pubchem.py
-- scripts/transform/transform_pubchem.py
-- scripts/load/load_pubchem.py
-- database/migrations/001_update_pubchem_table.sql
-- docs/SETUP_DATABASE.md
-
-## Próximos Passos
-
-1. Enriquecer compostos já presentes em stg.identification_row
-2. Popular camadas de referência além do staging
-3. Criar views de matching entre dados locais e fontes externas
-4. Estender o padrão para HMDB, ChEBI e FooDB
+    docker exec -i quimio_postgres psql -U quimio_user -d quimioanalytics -c "\d stg.pubchem_compound_raw"

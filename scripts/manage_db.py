@@ -20,15 +20,14 @@ import sys
 import subprocess
 import time
 from pathlib import Path
+from scripts.config import ConfigError, get_db_config_for_cli, mask_secret
 
-# Configurações do banco
-DB_CONFIG = {
-    'host': 'localhost',
-    'port': '5432',
-    'database': 'quimioanalytics',
-    'user': 'quimio_user',
-    'password': 'quimio_pass_2024'
-}
+try:
+    DB_CONFIG = get_db_config_for_cli()
+except ConfigError as exc:
+    print(f"❌ {exc}")
+    print("   Defina DB_PASS no ambiente antes de executar este script.")
+    sys.exit(1)
 
 CONTAINER_NAME = 'quimio_postgres'
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -49,7 +48,7 @@ def run_command(cmd, check=True, capture_output=False):
 def check_docker():
     """Verifica se Docker está instalado e rodando"""
     try:
-        result = subprocess.run(
+        subprocess.run(
             ['docker', 'ps'],
             capture_output=True,
             check=True
@@ -66,7 +65,8 @@ def container_exists():
     result = subprocess.run(
         ['docker', 'ps', '-a', '--filter', f'name={CONTAINER_NAME}', '--format', '{{.Names}}'],
         capture_output=True,
-        text=True
+        text=True,
+        check=False,
     )
     return CONTAINER_NAME in result.stdout
 
@@ -76,7 +76,8 @@ def container_is_running():
     result = subprocess.run(
         ['docker', 'ps', '--filter', f'name={CONTAINER_NAME}', '--format', '{{.Names}}'],
         capture_output=True,
-        text=True
+        text=True,
+        check=False,
     )
     return CONTAINER_NAME in result.stdout
 
@@ -99,12 +100,13 @@ def start_db():
     time.sleep(5)
     
     # Aguarda health check
-    for i in range(30):
+    for _ in range(30):
         if container_is_running():
             result = subprocess.run(
                 ['docker', 'exec', CONTAINER_NAME, 'pg_isready', 
                  '-U', DB_CONFIG['user'], '-d', DB_CONFIG['database']],
-                capture_output=True
+                capture_output=True,
+                check=False,
             )
             if result.returncode == 0:
                 print("✅ Banco de dados está pronto!")
@@ -186,8 +188,8 @@ def init_schema():
         'psql', '-U', DB_CONFIG['user'], '-d', DB_CONFIG['database']
     ]
     
-    with open(schema_file, 'r') as f:
-        result = subprocess.run(cmd, stdin=f, capture_output=True, text=True)
+    with open(schema_file, 'r', encoding='utf-8') as f:
+        result = subprocess.run(cmd, stdin=f, capture_output=True, text=True, check=False)
     
     if result.returncode == 0:
         print("✅ Schema criado com sucesso!")
@@ -221,7 +223,7 @@ def open_psql():
         'docker', 'exec', '-it', CONTAINER_NAME,
         'psql', '-U', DB_CONFIG['user'], '-d', DB_CONFIG['database']
     ]
-    subprocess.run(cmd)
+    subprocess.run(cmd, check=False)
 
 
 def clean_db():
@@ -247,7 +249,7 @@ def print_connection_info():
     print(f"Port:     {DB_CONFIG['port']}")
     print(f"Database: {DB_CONFIG['database']}")
     print(f"User:     {DB_CONFIG['user']}")
-    print(f"Password: {os.getenv('DB_PASS', '***')}")
+    print(f"Password: {mask_secret(DB_CONFIG['password'])}")
     print("=" * 60)
     print("\nPara conectar no DBeaver:")
     print("   1. Nova Conexao -> PostgreSQL")

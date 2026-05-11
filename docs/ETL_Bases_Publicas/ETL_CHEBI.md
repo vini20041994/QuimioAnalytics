@@ -1,174 +1,121 @@
-# ETL ChEBI - Guia de Uso
+# ETL ChEBI
 
-## Implementação Completa
+## 1. Objetivo
 
-A ETL do ChEBI agora inclui suporte completo para **relações ontológicas** na tabela staging `stg.chebi_compound_raw`.
+Este guia descreve o pipeline ChEBI para extração, transformação e carga em staging, incluindo relações ontológicas e papéis químicos/biológicos.
 
-⚠️ **Importante**: Por padrão, o ETL carrega apenas na tabela **staging** (`stg.chebi_compound_raw`). As tabelas de referência (`ref.*`) não são preenchidas automaticamente.
+Fluxo:
 
-### ✨ Novos Recursos
+Entrada -> Extract -> Transform -> Load -> stg.chebi_compound_raw
 
-#### Colunas adicionadas em `stg.chebi_compound_raw`:
+## 2. Quando usar este pipeline
 
-- **`outgoing_relations`** (JSONB): Relações ontológicas que partem do composto
-  - Exemplos: `is_a`, `has_role`, `has_part`, `is_conjugate_acid_of`
-  
-- **`incoming_relations`** (JSONB): Relações ontológicas que chegam ao composto
-  
-- **`chemical_role`** (JSONB): Papéis químicos do composto
-  - Exemplos: `acid`, `base`, `catalyst`, `solvent`
-  
-- **`biological_roles`** (JSONB): Papéis biológicos do composto
-  - Exemplos: `metabolite`, `drug`, `toxin`, `hormone`
-  
-- **`applications`** (JSONB): Aplicações do composto
-  - Exemplos: `pharmaceutical`, `pesticide`, `food additive`
+Use ChEBI quando você precisa:
 
-### 🚀 Como Executar
+- Enriquecer compostos com ontologia química.
+- Carregar relações como is_a e has_role.
+- Obter papéis químicos, papéis biológicos e aplicações.
 
-#### Opção 1: Script Python Completo (Recomendado)
+## 3. Pré-requisitos
 
-```bash
-# Com arquivo de texto (uma linha por composto)
-python3 run_etl_chebi.py compound_list.txt
+- Ambiente virtual ativo.
+- Dependências instaladas: pandas, pyarrow, requests, psycopg2-binary, openpyxl.
+- Banco PostgreSQL em execução.
 
-# Com arquivo de teste
-python3 run_etl_chebi.py chebi_test_input.txt
+Instalação rápida:
 
-# Com Parquet do staging
-python3 run_etl_chebi.py staging/identificacao_trusted.parquet
-```
+    source venv/bin/activate
+    pip install pandas pyarrow requests psycopg2-binary openpyxl
 
-O script `run_etl_chebi.py` executa automaticamente as 3 fases:
-1. **Extract**: Busca dados na API ChEBI/OLS
-2. **Transform**: Normaliza e prepara dados
-3. **Load**: Carrega em `stg.chebi_compound_raw` (staging apenas)
-4. **Validação**: Mostra estatísticas dos dados carregados
+## 4. Execução recomendada
 
-#### Opção 2: Executar Fases Manualmente
+### 4.1 Via orquestrador unificado
 
-```bash
-# 1. Extract
-python3 scripts/extract/extract_chebi.py chebi_test_input.txt
+    python3 scripts/run/run_pipeline_frontend.py --run-external --sources chebi
 
-# 2. Transform
-python3 scripts/transform/transform_chebi.py
+### 4.2 Via runner da fonte
 
-# 3. Load (staging apenas)
-python3 scripts/load/load_chebi.py
-```
+    python3 scripts/run/run_etl_chebi.py <arquivo_entrada>
 
-#### Opção 3: Carregar também em tabelas ref.* (opcional)
+Exemplos:
 
-Se você precisar dos dados normalizados em `ref.*`, após executar o ETL completo:
+    python3 scripts/run/run_etl_chebi.py chebi_test_input.txt
+    python3 scripts/run/run_etl_chebi.py staging/top5_external_input.csv
 
-```bash
-# Carregar em ref.external_compound e tabelas relacionadas
-python3 load_chebi_to_ref.py
-```
+## 5. Execução etapa por etapa
 
-Este script:
-- Lê `staging/chebi_trusted.parquet`
-- Carrega em todas as tabelas `ref.*`
-- Normaliza papéis, aplicações e identificadores
+    python3 scripts/extract/extract_chebi.py <arquivo_entrada>
+    python3 scripts/transform/transform_chebi.py
+    python3 scripts/load/load_chebi.py
 
-### 📊 Consultas Úteis
+## 6. Saídas e tabela de destino
 
-#### Ver estatísticas das relações ontológicas:
+Arquivos gerados:
 
-```sql
-SELECT 
-    COUNT(*) as total_registros,
-    COUNT(outgoing_relations) as com_outgoing,
-    COUNT(incoming_relations) as com_incoming,
-    COUNT(chemical_role) as com_role_quimico,
-    COUNT(biological_roles) as com_role_biologico,
-    COUNT(applications) as com_aplicacoes
-FROM stg.chebi_compound_raw;
-```
+- staging/chebi_raw.parquet
+- staging/chebi_raw.csv
+- staging/chebi_trusted.parquet
 
-#### Buscar compostos com relações específicas:
+Tabela de carga:
 
-```sql
--- Compostos que são ácidos
-SELECT chebi_accession, chemical_role
-FROM stg.chebi_compound_raw
-WHERE chemical_role @> '["acid"]'::jsonb;
+- stg.chebi_compound_raw
 
--- Compostos com relações "is_a"
-SELECT 
-    chebi_accession,
-    jsonb_array_length(outgoing_relations) as num_relacoes
-FROM stg.chebi_compound_raw
-WHERE outgoing_relations::text LIKE '%is_a%';
-```
+Observação importante:
 
-#### Explorar hierarquia ontológica:
+- O ETL padrão carrega automaticamente a staging.
+- Carga em tabelas ref pode ser executada separadamente quando necessário.
 
-```sql
--- Ver todas as relações de um composto específico
-SELECT 
-    chebi_accession,
-    outgoing_relations,
-    incoming_relations
-FROM stg.chebi_compound_raw
-WHERE chebi_accession = 'CHEBI:15365';
-```
+## 7. Colunas ontológicas relevantes
 
-### 📁 Estrutura de Dados
+Em stg.chebi_compound_raw:
 
-#### Exemplo de `outgoing_relations`:
-```json
-[
-  "aspirin (CHEBI:15365) is_a salicylate (CHEBI:26605)",
-  "aspirin (CHEBI:15365) has_role antipyretic (CHEBI:35493)"
-]
-```
+- outgoing_relations (JSONB)
+- incoming_relations (JSONB)
+- chemical_role (JSONB)
+- biological_roles (JSONB)
+- applications (JSONB)
 
-#### Exemplo de `chemical_role`:
-```json
-["non-steroidal anti-inflammatory drug", "antipyretic", "antiplatelet drug"]
-```
+Também existem colunas de texto para leitura direta no SQL (sufixo _text).
 
-### 🗄️ Tabelas Afetadas
+## 8. Migrations relacionadas
 
-**Carregadas automaticamente:**
-- **`stg.chebi_compound_raw`**: Dados brutos com relações ontológicas em colunas JSONB dedicadas
+- database/migrations/004_add_chebi_relations_to_staging.sql
+- database/migrations/005_chebi_json_to_text_columns.sql
+- database/migrations/006_remove_duplicates_add_unique_chebi_constraint.sql
+- database/migrations/008_add_definition_to_chebi_staging.sql
+- database/migrations/009_complete_chebi_staging_and_ref_constraints.sql
 
-**Disponíveis para carregamento manual (via `load_chebi_ref()`):**
-- `ref.external_compound`: Compostos normalizados
-- `ref.external_identifier`: IDs secundários, IUPAC names, sinônimos
-- `ref.compound_property`: Massas e definições
-- `ref.chemical_class`: Papéis químicos e biológicos (normalizados)
-- `ref.use_application`: Aplicações (normalizadas)
+## 9. Validação rápida
 
-### 🔧 Arquivos Modificados
+    SELECT COUNT(*) AS total FROM stg.chebi_compound_raw;
 
-1. **`database/migrations/004_add_chebi_relations_to_staging.sql`**
-   - Adiciona colunas JSONB para relações ontológicas
-   - Cria índices GIN para consultas eficientes
+    SELECT
+        COUNT(outgoing_relations) AS com_outgoing,
+        COUNT(incoming_relations) AS com_incoming,
+        COUNT(chemical_role) AS com_role_quimico,
+        COUNT(biological_roles) AS com_role_biologico,
+        COUNT(applications) AS com_aplicacoes
+    FROM stg.chebi_compound_raw;
 
-2. **`database/migrations/005_chebi_json_to_text_columns.sql`**
-  - Adiciona colunas de texto legível (`*_text`) para facilitar leitura no banco
-  - Realiza backfill dos registros já carregados
+    SELECT chebi_accession, chemical_role
+    FROM stg.chebi_compound_raw
+    WHERE chemical_role IS NOT NULL
+    LIMIT 10;
 
-3. **`database/migrations/006_remove_duplicates_add_unique_chebi_constraint.sql`**
-  - Remove duplicatas antigas por `chebi_accession`
-  - Adiciona constraint `UNIQUE (chebi_accession)`
+## 10. Troubleshooting
 
-4. **`scripts/load/load_chebi.py`**
-  - Estrutura alinhada ao padrão do `load_pubchem.py`
-  - Cria/usa `batch_id` em `core.ingestion_batch`
-  - Executa upsert com `ON CONFLICT (chebi_accession)`
-  - Preenche tanto colunas JSONB quanto colunas texto (`*_text`)
+1. Constraint/migration ausente
 
-5. **`run_etl_chebi.py`**
-   - Script Python completo para ETL com validação
+    for f in database/migrations/*.sql; do
+      echo "Aplicando $f"
+      docker exec -i quimio_postgres psql -U quimio_user -d quimioanalytics < "$f"
+    done
 
-### ⚠️ Notas Importantes
+2. Ver estrutura da tabela
 
-- Os índices GIN permitem busca eficiente em campos JSONB
-- Relações ontológicas são armazenadas como arrays de strings formatadas
-- O campo `json_payload` mantém os dados brutos para auditoria e reprocessamento
-- As colunas `*_text` facilitam leitura direta no SQL sem parse de JSON
-- A constraint de unicidade evita duplicação de registros por `chebi_accession`
+    docker exec -i quimio_postgres psql -U quimio_user -d quimioanalytics -c "\d stg.chebi_compound_raw"
+
+3. Dependências ausentes
+
+    source venv/bin/activate
+    pip install pandas pyarrow requests psycopg2-binary openpyxl

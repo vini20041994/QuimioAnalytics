@@ -4,19 +4,18 @@ Insere dados em stg.chemspider_compound_raw e em ref.external_compound / ref.*
 """
 
 import json
-import os
 import sys
 from pathlib import Path
 
 import pandas as pd
 import psycopg2
 from psycopg2.extras import Json
+from scripts.config import get_db_params
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 STAGING_DIR = PROJECT_ROOT / "staging"
 
-sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "load"))
-from external_load_utils import (
+from scripts.load.external_load_utils import (
     get_source_id,
     get_or_create_external_compound,
     write_external_identifier,
@@ -25,17 +24,6 @@ from external_load_utils import (
 )
 
 _CHEMSPIDER_SOURCE_NAME = "ChemSpider_API"
-
-
-def db_params():
-    """Parâmetros de conexão com o banco."""
-    return dict(
-        host=os.getenv("DB_HOST", "localhost"),
-        port=int(os.getenv("DB_PORT", "5432")),
-        dbname=os.getenv("DB_NAME", "quimioanalytics"),
-        user=os.getenv("DB_USER", "quimio_user"),
-        password=os.getenv("DB_PASS", "quimio_pass_2024"),
-    )
 
 
 def get_or_create_batch(cur, batch_name):
@@ -69,7 +57,7 @@ def is_valid(value):
         return False
     try:
         return not pd.isna(value)
-    except Exception:
+    except (TypeError, ValueError):
         return True
 
 
@@ -116,7 +104,7 @@ def parse_int(value):
         return None
     try:
         return int(str(value).strip())
-    except Exception:
+    except (TypeError, ValueError):
         return None
 
 
@@ -261,7 +249,7 @@ def _upsert_chemspider_to_ref(cur, row, source_id):
 
 def load_chemspider(df, batch_name="ChemSpider Extract", source_file="chemspider_trusted.parquet"):
     """Carrega DataFrame do ChemSpider em stg.chemspider_compound_raw e em ref.*"""
-    with psycopg2.connect(**db_params()) as conn:
+    with psycopg2.connect(**get_db_params()) as conn:
         with conn.cursor() as cur:
             batch_id = get_or_create_batch(cur, batch_name)
             print(f"Usando batch_id: {batch_id}")
@@ -276,6 +264,7 @@ def load_chemspider(df, batch_name="ChemSpider Extract", source_file="chemspider
 
             for idx, row in df.iterrows():
                 try:
+                    cur.execute("SAVEPOINT sp_chemspider_row")
                     inserted = upsert_chemspider_compound(cur, row, batch_id, source_file)
                     if inserted:
                         if source_id is not None:
@@ -285,7 +274,8 @@ def load_chemspider(df, batch_name="ChemSpider Extract", source_file="chemspider
                     if (count % 100) == 0 and count > 0:
                         print(f"  Processados: {count}/{len(df)}")
                         conn.commit()
-                except Exception as exc:
+                except (psycopg2.Error, ValueError, TypeError) as exc:
+                    cur.execute("ROLLBACK TO SAVEPOINT sp_chemspider_row")
                     errors += 1
                     print(f"  Erro no registro {idx}: {exc}")
                     if errors > 10:
@@ -321,7 +311,7 @@ def main():
     df = pd.read_parquet(trusted_file)
     print(f"  ✓ {len(df)} registros carregados")
 
-    print(f"Carregando no banco de dados...")
+    print("Carregando no banco de dados...")
     inserted, errors = load_chemspider(df, source_file=trusted_file.name)
 
     print(f"\n{'=' * 60}")
