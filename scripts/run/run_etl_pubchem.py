@@ -57,9 +57,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-    print(f"{'='*60}\n")
-
-
-if __name__ == "__main__":
-    main()

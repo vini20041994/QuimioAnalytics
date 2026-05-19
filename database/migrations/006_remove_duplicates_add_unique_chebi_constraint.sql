@@ -39,6 +39,9 @@ FROM (
 -- PARTE 3: Constraint UNIQUE
 -- ============================================================================
 ALTER TABLE stg.chebi_compound_raw
+DROP CONSTRAINT IF EXISTS uq_chebi_accession;
+
+ALTER TABLE stg.chebi_compound_raw
 ADD CONSTRAINT uq_chebi_accession UNIQUE (chebi_accession);
 
 COMMENT ON CONSTRAINT uq_chebi_accession ON stg.chebi_compound_raw IS

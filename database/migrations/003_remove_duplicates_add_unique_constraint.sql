@@ -36,6 +36,9 @@ FROM (
 -- PARTE 2: Adicionar constraint UNIQUE
 -- ============================================================================
 
+ALTER TABLE stg.pubchem_compound_raw
+DROP CONSTRAINT IF EXISTS uq_pubchem_cid;
+
 -- Adicionar constraint para prevenir futuras duplicatas
 -- UPSERT: Permite atualizar dados quando CID já existe
 ALTER TABLE stg.pubchem_compound_raw
