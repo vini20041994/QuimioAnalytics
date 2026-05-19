@@ -40,12 +40,12 @@ class ChemSpiderSpider(scrapy.Spider):
         },
     }
 
-    def __init__(self, inputs=None, *args, **kwargs):
+    def __init__(self, inputs=None, **kwargs):
         """
         inputs: lista de dicts com chave 'description' (texto descritivo) ou 'compound_id' (CSID).
         Exemplo: [{"description": "Caffeine"}, {"compound_id": "2424"}]
         """
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
         self.inputs = inputs or []
         self.results = []
 
@@ -211,7 +211,7 @@ def _parse_inputs(args):
             inputs.append({"compound_id": cid})
 
     if args.file:
-        with open(args.file, 'r') as f:
+        with open(args.file, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:

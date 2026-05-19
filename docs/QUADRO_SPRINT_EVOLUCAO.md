@@ -25,14 +25,14 @@ Capacidade sugerida: 24 pontos
 
 | ID | Tarefa | Arquivo(s) | Pontos | Dono | Status | Criterio de aceite |
 |---|---|---|---:|---|---|---|
-| S1-01 | Corrigir assinatura invalida do spider ChemSpider | `scripts/extract/extract_chemspider.py` | 3 | Backend | Todo | Script executa sem erro de sintaxe e gera parquet de saida |
-| S1-02 | Ajustar leitura de arquivo com encoding explicito no ChemSpider | `scripts/extract/extract_chemspider.py` | 1 | Backend | Todo | Sem alerta de open sem encoding |
-| S1-03 | Remover bloco duplicado de execucao no runner PubChem | `scripts/run/run_etl_pubchem.py` | 2 | Backend | Todo | Runner executa uma unica vez por chamada |
-| S1-04 | Tornar criacao de tabelas finais idempotente no schema base | `database/schema_postgresql_mvp_entrega2.sql` | 5 | Dados | Todo | Reaplicar schema nao falha por tabela existente |
-| S1-05 | Tornar migration 003 reexecutavel para constraint UNIQUE | `database/migrations/003_remove_duplicates_add_unique_constraint.sql` | 3 | Dados | Todo | Migration pode rodar novamente sem erro de constraint duplicada |
-| S1-06 | Tornar migration 006 reexecutavel para constraint UNIQUE | `database/migrations/006_remove_duplicates_add_unique_chebi_constraint.sql` | 3 | Dados | Todo | Migration pode rodar novamente sem erro de constraint duplicada |
-| S1-07 | Corrigir links de documentacao de primeira execucao | `README.md`, `scripts/run/install_system_prereqs.sh`, `docs/README.md` | 2 | DevOps | Todo | Nao ha referencia para arquivo inexistente |
-| S1-08 | Verificar sintaxe/lint dos extratores legados apos ajustes | `scripts/extract/extract_foodb.py`, `scripts/extract/extract_hmdb.py`, `scripts/extract/extract_classyfire.py`, `scripts/extract/extract_lotus.py` | 5 | QA | Todo | Sem erros bloqueantes no VS Code Problems |
+| S1-01 | Corrigir assinatura invalida do spider ChemSpider | `scripts/extract/extract_chemspider.py` | 3 | Backend | Done | Script executa sem erro de sintaxe e gera parquet de saida |
+| S1-02 | Ajustar leitura de arquivo com encoding explicito no ChemSpider | `scripts/extract/extract_chemspider.py` | 1 | Backend | Done | Sem alerta de open sem encoding |
+| S1-03 | Remover bloco duplicado de execucao no runner PubChem | `scripts/run/run_etl_pubchem.py` | 2 | Backend | Done | Runner executa uma unica vez por chamada |
+| S1-04 | Tornar criacao de tabelas finais idempotente no schema base | `database/schema_postgresql_mvp_entrega2.sql` | 5 | Dados | Done | Reaplicar schema nao falha por tabela existente |
+| S1-05 | Tornar migration 003 reexecutavel para constraint UNIQUE | `database/migrations/003_remove_duplicates_add_unique_constraint.sql` | 3 | Dados | Done | Migration pode rodar novamente sem erro de constraint duplicada |
+| S1-06 | Tornar migration 006 reexecutavel para constraint UNIQUE | `database/migrations/006_remove_duplicates_add_unique_chebi_constraint.sql` | 3 | Dados | Done | Migration pode rodar novamente sem erro de constraint duplicada |
+| S1-07 | Corrigir links de documentacao de primeira execucao | `README.md`, `scripts/run/install_system_prereqs.sh`, `docs/README.md` | 2 | DevOps | Done | Nao ha referencia para arquivo inexistente |
+| S1-08 | Verificar sintaxe/lint dos extratores legados apos ajustes | `scripts/extract/extract_foodb.py`, `scripts/extract/extract_hmdb.py`, `scripts/extract/extract_classyfire.py`, `scripts/extract/extract_lotus.py` | 5 | QA | Done | Sem erros bloqueantes no VS Code Problems |
 
 Total Sprint 1: 24 pontos
 
@@ -106,7 +106,7 @@ Sugestao de visao rapida para daily/weekly:
 
 | Sprint | Pontos planejados | Pontos concluidos | % Conclusao | Risco | Observacoes |
 |---|---:|---:|---:|---|---|
-| Sprint 1 | 24 | 0 | 0% | Alto | Estabilizacao critica |
+| Sprint 1 | 24 | 24 | 100% | Baixo | Estabilizacao critica concluida |
 | Sprint 2 | 26 | 0 | 0% | Alto | Integridade e idempotencia |
 | Sprint 3 | 30 | 0 | 0% | Medio | Testes e cobertura |
 | Sprint 4 | 32 | 0 | 0% | Medio | Performance e hardening |
