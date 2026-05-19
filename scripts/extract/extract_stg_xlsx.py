@@ -5,15 +5,15 @@ import argparse
 import sys
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent  # Vai para raiz do projeto
-DADOS_BRUTOS_DIR = BASE_DIR / "dados_brutos"
-STAGING_DIR = BASE_DIR / "staging"
+RAW_INPUTS_DIR = BASE_DIR / "data" / "raw_inputs"
+STAGING_DIR = BASE_DIR / "data" / "staging"
 EXCEL_SHEET_METADATA = STAGING_DIR / "excel_sheet_names.json"
 
-STAGING_DIR.mkdir(exist_ok=True)
+STAGING_DIR.mkdir(parents=True, exist_ok=True)
 
-ARQUIVO_IDENT = DADOS_BRUTOS_DIR / "IDENTIFICACAO.xlsx"
-ARQUIVO_ABUND = DADOS_BRUTOS_DIR / "ABUND.xlsx"
-ARQUIVO_COMPOSTOS = DADOS_BRUTOS_DIR / "Compostos_final.xlsx"
+ARQUIVO_IDENT = RAW_INPUTS_DIR / "IDENTIFICACAO.xlsx"
+ARQUIVO_ABUND = RAW_INPUTS_DIR / "ABUND.xlsx"
+ARQUIVO_COMPOSTOS = RAW_INPUTS_DIR / "Compostos_final.xlsx"
 
 
 def extract_sheet_name(path: Path):
@@ -45,7 +45,7 @@ def extract_compostos(path: Path = ARQUIVO_COMPOSTOS):
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Extrai planilhas XLSX para staging em formato parquet."
+        description="Extrai planilhas XLSX para data/staging em formato parquet."
     )
     parser.add_argument(
         "--identificacao",

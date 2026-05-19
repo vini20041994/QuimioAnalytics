@@ -6,9 +6,9 @@ import time
 import requests
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-STAGING_DIR = BASE_DIR / "staging"
+STAGING_DIR = BASE_DIR / "data" / "staging"
 
-STAGING_DIR.mkdir(exist_ok=True)
+STAGING_DIR.mkdir(parents=True, exist_ok=True)
 
 def hmdb_check(nome):
     url = f"https://hmdb.ca/unearth/q?query={nome}&searcher=metabolites"

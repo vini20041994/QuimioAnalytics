@@ -9,7 +9,7 @@ from scripts.config import get_db_params
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent  # Raiz do projeto
-STAGING_DIR = BASE_DIR / "staging"
+STAGING_DIR = BASE_DIR / "data" / "staging"
 EXCEL_SHEET_METADATA = STAGING_DIR / "excel_sheet_names.json"
 
 

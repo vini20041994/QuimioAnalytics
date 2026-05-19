@@ -1,4 +1,22 @@
 import os
+from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DATA_DIR = PROJECT_ROOT / "data"
+RAW_INPUTS_DIR = DATA_DIR / "raw_inputs"
+STAGING_DIR = DATA_DIR / "staging"
+RUNTIME_DIR = PROJECT_ROOT / "runtime"
+LOGS_DIR = RUNTIME_DIR / "logs"
+BACKUPS_DIR = RUNTIME_DIR / "backups"
+DOCS_DIR = PROJECT_ROOT / "docs"
+REPORT_ASSETS_DIR = DOCS_DIR / "report_assets"
+DATABASE_DIR = PROJECT_ROOT / "database"
+SCHEMA_FILE = DATABASE_DIR / "schema_postgresql_mvp_entrega2.sql"
+MIGRATIONS_DIR = DATABASE_DIR / "migrations"
+SCRIPTS_DIR = PROJECT_ROOT / "scripts"
+RUN_SCRIPTS_DIR = SCRIPTS_DIR / "run"
+FEATURES_DIR = SCRIPTS_DIR / "features"
 
 
 class ConfigError(ValueError):

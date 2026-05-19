@@ -40,7 +40,7 @@ Instalação rápida:
 Exemplos:
 
     python3 scripts/run/run_etl_chebi.py chebi_test_input.txt
-    python3 scripts/run/run_etl_chebi.py staging/top10_external_input.csv
+    python3 scripts/run/run_etl_chebi.py data/staging/top10_external_input.csv
 
 ## 5. Execução etapa por etapa
 
@@ -52,9 +52,9 @@ Exemplos:
 
 Arquivos gerados:
 
-- staging/chebi_raw.parquet
-- staging/chebi_raw.csv
-- staging/chebi_trusted.parquet
+- data/staging/chebi_raw.parquet
+- data/staging/chebi_raw.csv
+- data/staging/chebi_trusted.parquet
 
 Tabela de carga:
 
@@ -62,7 +62,7 @@ Tabela de carga:
 
 Observação importante:
 
-- O ETL padrão carrega automaticamente a staging.
+- O ETL padrão carrega automaticamente os artefatos em data/staging e a tabela stg.chebi_compound_raw.
 - Carga em tabelas ref pode ser executada separadamente quando necessário.
 
 ## 7. Colunas ontológicas relevantes

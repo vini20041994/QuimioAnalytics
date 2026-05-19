@@ -57,8 +57,8 @@ Exemplos alternativos:
 
 Arquivos gerados:
 
-- staging/chemspider_raw.parquet
-- staging/chemspider_trusted.parquet
+- data/staging/chemspider_raw.parquet
+- data/staging/chemspider_trusted.parquet
 
 Tabela de carga:
 

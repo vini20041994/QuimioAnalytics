@@ -42,7 +42,7 @@ Opcoes:
   --identificacao ARQ.xlsx   Planilha IDENTIFICACAO customizada
   --abundancia ARQ.xlsx      Planilha ABUND customizada
   --compostos ARQ.xlsx       Planilha Compostos_final customizada
-  --overwrite-inputs         Permite sobrescrever dados_brutos
+  --overwrite-inputs         Permite sobrescrever arquivos em data/raw_inputs
 
   --with-external            Executa ETLs externos (PubChem/ChEBI/ChemSpider)
   --no-load-core             Nao persiste Top 10 no schema core

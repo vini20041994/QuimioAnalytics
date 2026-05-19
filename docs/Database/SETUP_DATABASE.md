@@ -90,7 +90,7 @@ Password: valor de DB_PASS
 
 Após conectar, você verá três schemas:
 - **core**: Tabelas principais (features, measurements, batches)
-- **stg**: Staging/dados brutos importados
+- **stg**: Schema de staging para dados importados e intermediários
 - **ref**: Dados de referência (bibliotecas externas)
 
 ## 🗄️ Estrutura do Banco de Dados
@@ -105,7 +105,7 @@ quimioanalytics/
 │   ├── abundance_measurement
 │   └── candidate_identification
 │
-├── stg.*               # Schema de staging
+├── stg.*               # Schema de staging do banco
 │   ├── identification_row
 │   ├── abundance_row
 │   ├── curated_catalog_row

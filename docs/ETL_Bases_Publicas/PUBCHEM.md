@@ -40,7 +40,7 @@ Instalação rápida:
 Exemplos:
 
     python3 scripts/run/run_etl_pubchem.py compound_list.txt
-    python3 scripts/run/run_etl_pubchem.py staging/top10_external_input.csv
+    python3 scripts/run/run_etl_pubchem.py data/staging/top10_external_input.csv
 
 ## 5. Execução etapa por etapa
 
@@ -52,7 +52,7 @@ Exemplos:
 
 - TXT: um composto por linha.
 - CSV: colunas como nome, fórmula, InChIKey ou SMILES.
-- Parquet: arquivos de staging já processados.
+- Parquet: arquivos de data/staging já processados.
 
 ## 7. Estratégia de busca
 
@@ -70,10 +70,10 @@ Isso melhora a taxa de acerto em entradas heterogêneas.
 
 Arquivos gerados:
 
-- staging/pubchem_raw.parquet
-- staging/pubchem_raw.csv
-- staging/pubchem_trusted.parquet
-- logs/pubchem_extract_YYYYMMDD_HHMMSS.log
+- data/staging/pubchem_raw.parquet
+- data/staging/pubchem_raw.csv
+- data/staging/pubchem_trusted.parquet
+- runtime/logs/pubchem_extract_YYYYMMDD_HHMMSS.log
 
 Tabela de carga:
 

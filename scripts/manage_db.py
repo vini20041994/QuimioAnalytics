@@ -20,7 +20,7 @@ import sys
 import subprocess
 import time
 from pathlib import Path
-from scripts.config import ConfigError, get_db_config_for_cli, mask_secret
+from scripts.config import ConfigError, PROJECT_ROOT, SCHEMA_FILE, get_db_config_for_cli, mask_secret
 
 try:
     DB_CONFIG = get_db_config_for_cli()
@@ -30,7 +30,6 @@ except ConfigError as exc:
     sys.exit(1)
 
 CONTAINER_NAME = 'quimio_postgres'
-PROJECT_ROOT = Path(__file__).parent.parent
 
 
 def run_command(cmd, check=True, capture_output=False):
@@ -176,7 +175,7 @@ def init_schema():
         print("   python scripts/manage_db.py start")
         return False
     
-    schema_file = PROJECT_ROOT / 'database' / 'schema_postgresql_mvp_entrega2.sql'
+    schema_file = SCHEMA_FILE
     if not schema_file.exists():
         print(f"❌ Arquivo de schema não encontrado: {schema_file}")
         return False

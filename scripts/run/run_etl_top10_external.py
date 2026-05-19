@@ -9,7 +9,7 @@ Fluxo:
 
 Uso:
     python3 scripts/run/run_etl_top10_external.py
-    python3 scripts/run/run_etl_top10_external.py --top10 staging/top10_candidates.parquet
+    python3 scripts/run/run_etl_top10_external.py --top10 data/staging/top10_candidates.parquet
     python3 scripts/run/run_etl_top10_external.py --sources pubchem chebi
 """
 
@@ -22,7 +22,7 @@ import pandas as pd
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-STAGING_DIR = PROJECT_ROOT / "staging"
+STAGING_DIR = PROJECT_ROOT / "data" / "staging"
 RUN_DIR = PROJECT_ROOT / "scripts" / "run"
 VENV_PYTHON = PROJECT_ROOT / "venv" / "bin" / "python3"
 
@@ -184,7 +184,7 @@ def main() -> None:
         )
 
     print("\n✅ Integração concluída com sucesso.")
-    print("Arquivos gerados no staging:")
+    print("Arquivos gerados em data/staging:")
     print("- top10_external_input.csv")
     print("- top10_chemspider_input.txt")
 

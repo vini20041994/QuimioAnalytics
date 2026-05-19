@@ -3,7 +3,7 @@
 Orquestrador unico para front-end: entrada de planilhas -> ETL principal -> Top 10 -> carga no banco.
 
 Fluxo padrao:
-1) Copia planilhas de entrada para dados_brutos/
+1) Copia planilhas de entrada para data/raw_inputs/
 2) Executa ETL principal (extract_stg_xlsx -> transform_stg_xlsx -> load_stg_transformed)
 3) Executa ranking probabilistico Top 10
 4) (Opcional) Integra bases externas via Top 10
@@ -30,22 +30,27 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-RUN_DIR = PROJECT_ROOT / "scripts" / "run"
-FEATURES_DIR = PROJECT_ROOT / "scripts" / "features"
-DADOS_BRUTOS_DIR = PROJECT_ROOT / "dados_brutos"
-STAGING_DIR = PROJECT_ROOT / "staging"
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-RUN_ETL_SCRIPT = RUN_DIR / "run_etl.py"
-RUN_EXTERNAL_SCRIPT = RUN_DIR / "run_etl_top10_external.py"
+from scripts.config import (
+    FEATURES_DIR,
+    MIGRATIONS_DIR,
+    RAW_INPUTS_DIR,
+    RUN_SCRIPTS_DIR,
+    SCHEMA_FILE,
+    STAGING_DIR,
+)
+
+
+RUN_ETL_SCRIPT = RUN_SCRIPTS_DIR / "run_etl.py"
+RUN_EXTERNAL_SCRIPT = RUN_SCRIPTS_DIR / "run_etl_top10_external.py"
 RANKING_SCRIPT = FEATURES_DIR / "analytics.py"
 VENV_DIR = PROJECT_ROOT / "venv"
 PYTHON_BIN = VENV_DIR / "bin" / "python3"
 PIP_BIN = VENV_DIR / "bin" / "pip"
 CONTAINER_NAME = "quimio_postgres"
-SCHEMA_FILE = PROJECT_ROOT / "database" / "schema_postgresql_mvp_entrega2.sql"
-MIGRATIONS_DIR = PROJECT_ROOT / "database" / "migrations"
 
 DEPS = [
     "pandas",
@@ -57,9 +62,9 @@ DEPS = [
     "scrapy",
 ]
 
-DEST_IDENTIFICACAO = DADOS_BRUTOS_DIR / "IDENTIFICACAO.xlsx"
-DEST_ABUNDANCIA = DADOS_BRUTOS_DIR / "ABUND.xlsx"
-DEST_COMPOSTOS = DADOS_BRUTOS_DIR / "Compostos_final.xlsx"
+DEST_IDENTIFICACAO = RAW_INPUTS_DIR / "IDENTIFICACAO.xlsx"
+DEST_ABUNDANCIA = RAW_INPUTS_DIR / "ABUND.xlsx"
+DEST_COMPOSTOS = RAW_INPUTS_DIR / "Compostos_final.xlsx"
 DEFAULT_TOP10_OUTPUT = STAGING_DIR / "top10_candidates.parquet"
 
 
@@ -314,7 +319,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--overwrite-inputs",
         action="store_true",
-        help="Permite sobrescrever arquivos em dados_brutos/.",
+        help="Permite sobrescrever arquivos em data/raw_inputs/.",
     )
 
     parser.add_argument(

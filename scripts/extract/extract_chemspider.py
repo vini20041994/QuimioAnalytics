@@ -9,8 +9,8 @@ import scrapy
 from scrapy.crawler import CrawlerProcess
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-STAGING_DIR = BASE_DIR / "staging"
-STAGING_DIR.mkdir(exist_ok=True)
+STAGING_DIR = BASE_DIR / "data" / "staging"
+STAGING_DIR.mkdir(parents=True, exist_ok=True)
 
 # Mapeamento de datasources do ChemSpider para chaves padronizadas
 # (apenas bases presentes no repositório)

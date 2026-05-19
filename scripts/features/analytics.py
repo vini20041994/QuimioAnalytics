@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from scripts.config import PROJECT_ROOT, RAW_INPUTS_DIR, STAGING_DIR
 from .database_top_10 import load_top10_to_core
 from .io import load_and_merge_planilhas
 from .scoring import (
@@ -12,10 +13,7 @@ from .scoring import (
     score_isotope,
     score_mass,
 )
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-
-DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "staging" / "top10_candidates.parquet"
+DEFAULT_OUTPUT_PATH = STAGING_DIR / "top10_candidates.parquet"
 DEFAULT_BATCH_NAME = "TOP10_RANKING"
 DEFAULT_TOP_N = 10
 
@@ -56,8 +54,8 @@ def _compute_abundance_metrics(df):
 
 
 def run_probabilistic_ranking(
-    identificacao_xlsx=PROJECT_ROOT / "dados_brutos" / "IDENTIFICACAO.xlsx",
-    abund_xlsx=PROJECT_ROOT / "dados_brutos" / "ABUND.xlsx",
+    identificacao_xlsx=RAW_INPUTS_DIR / "IDENTIFICACAO.xlsx",
+    abund_xlsx=RAW_INPUTS_DIR / "ABUND.xlsx",
     output_path=DEFAULT_OUTPUT_PATH,
     load_core=False,
     batch_name=DEFAULT_BATCH_NAME,
@@ -140,8 +138,8 @@ def run_probabilistic_ranking(
 
 def main():
     parser = argparse.ArgumentParser(description="Ranking probabilistico e carga opcional no schema core")
-    parser.add_argument("--identificacao", default=str(PROJECT_ROOT / "dados_brutos" / "IDENTIFICACAO.xlsx"), help="Caminho da planilha de identificação (xlsx)")
-    parser.add_argument("--abundancia", default=str(PROJECT_ROOT / "dados_brutos" / "ABUND.xlsx"), help="Caminho da planilha de abundância (xlsx)")
+    parser.add_argument("--identificacao", default=str(RAW_INPUTS_DIR / "IDENTIFICACAO.xlsx"), help="Caminho da planilha de identificação (xlsx)")
+    parser.add_argument("--abundancia", default=str(RAW_INPUTS_DIR / "ABUND.xlsx"), help="Caminho da planilha de abundância (xlsx)")
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT_PATH), help="Caminho do parquet de saida")
     parser.add_argument("--top-n", type=int, default=DEFAULT_TOP_N, help="Quantidade maxima de candidatos por feature_group")
     parser.add_argument("--load-core", action="store_true", help="Persiste o Top 10 no schema core")

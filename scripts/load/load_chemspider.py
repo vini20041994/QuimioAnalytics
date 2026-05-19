@@ -13,7 +13,7 @@ from psycopg2.extras import Json
 from scripts.config import get_db_params
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-STAGING_DIR = PROJECT_ROOT / "staging"
+STAGING_DIR = PROJECT_ROOT / "data" / "staging"
 
 from scripts.load.external_load_utils import (
     get_source_id,

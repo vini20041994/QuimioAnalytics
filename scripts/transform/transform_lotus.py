@@ -4,7 +4,7 @@ from pathlib import Path
 from external_transform_utils import normalize_dataframe
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-STAGING_DIR = PROJECT_ROOT / "staging"
+STAGING_DIR = PROJECT_ROOT / "data" / "staging"
 
 
 def transform_lotus(df):

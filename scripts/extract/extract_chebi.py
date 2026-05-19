@@ -12,15 +12,15 @@ from datetime import datetime
 
 # Configuração
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-STAGING_DIR = BASE_DIR / "staging"
-LOG_DIR = BASE_DIR / "logs"
+STAGING_DIR = BASE_DIR / "data" / "staging"
+LOG_DIR = BASE_DIR / "runtime" / "logs"
 REQUEST_TIMEOUT = 20
 REQUEST_HEADERS = {
     "User-Agent": "QuimioAnalytics/1.0 (+https://www.ebi.ac.uk/chebi/)"
 }
 
-STAGING_DIR.mkdir(exist_ok=True)
-LOG_DIR.mkdir(exist_ok=True)
+STAGING_DIR.mkdir(parents=True, exist_ok=True)
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 # Configurar logging
 logging.basicConfig(
@@ -457,7 +457,7 @@ def main():
         print("\nFormatos suportados: TXT, CSV, XLSX, Parquet")
         print("\nExemplo:")
         print("  python3 extract_chebi.py compound_list.txt")
-        print("  python3 extract_chebi.py staging/identificacao_trusted.parquet")
+        print("  python3 extract_chebi.py data/staging/identificacao_trusted.parquet")
         sys.exit(1)
     
     input_file = sys.argv[1]

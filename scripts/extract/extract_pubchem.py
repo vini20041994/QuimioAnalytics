@@ -24,11 +24,11 @@ import logging
 
 # Configuração
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-STAGING_DIR = BASE_DIR / "staging"
-LOG_DIR = BASE_DIR / "logs"
+STAGING_DIR = BASE_DIR / "data" / "staging"
+LOG_DIR = BASE_DIR / "runtime" / "logs"
 
-STAGING_DIR.mkdir(exist_ok=True)
-LOG_DIR.mkdir(exist_ok=True)
+STAGING_DIR.mkdir(parents=True, exist_ok=True)
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 # Configurar logging
 logging.basicConfig(
@@ -367,7 +367,7 @@ def main():
         print(__doc__)
         print("\nExemplo:")
         print("  python3 extract_pubchem.py compound_list.txt")
-        print("  python3 extract_pubchem.py staging/identificacao_trusted.parquet")
+        print("  python3 extract_pubchem.py data/staging/identificacao_trusted.parquet")
         sys.exit(1)
     
     input_file = sys.argv[1]

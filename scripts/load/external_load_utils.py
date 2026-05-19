@@ -5,7 +5,7 @@ from psycopg2.extras import Json
 from scripts.config import get_db_params
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-STAGING_DIR = BASE_DIR / "staging"
+STAGING_DIR = BASE_DIR / "data" / "staging"
 
 
 def db_params():

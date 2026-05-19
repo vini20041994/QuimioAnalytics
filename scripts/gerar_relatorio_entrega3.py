@@ -382,11 +382,11 @@ def _generate_eda_assets(df_raw, df_top10):
 
 
 def _collect_report_inputs():
-    raw_path = PROJECT_ROOT / "dados_brutos" / "merge_resultado.csv"
-    top10_path = PROJECT_ROOT / "staging" / "top10_candidates.parquet"
-    ident_path = PROJECT_ROOT / "staging" / "identificacao_trusted.parquet"
-    external_input_path = PROJECT_ROOT / "staging" / "top10_external_input.csv"
-    pubchem_path = PROJECT_ROOT / "staging" / "pubchem_raw.csv"
+    raw_path = PROJECT_ROOT / "data" / "raw_inputs" / "merge_resultado.csv"
+    top10_path = PROJECT_ROOT / "data" / "staging" / "top10_candidates.parquet"
+    ident_path = PROJECT_ROOT / "data" / "staging" / "identificacao_trusted.parquet"
+    external_input_path = PROJECT_ROOT / "data" / "staging" / "top10_external_input.csv"
+    pubchem_path = PROJECT_ROOT / "data" / "staging" / "pubchem_raw.csv"
 
     df_raw = _safe_read_csv(raw_path)
     df_top10 = _safe_read_parquet(top10_path)
@@ -396,7 +396,7 @@ def _collect_report_inputs():
     metrics = _compute_quality_metrics(df_raw, df_top10, df_ident, df_external_input, df_pubchem)
     assets = _generate_eda_assets(df_raw, df_top10)
 
-    sample_output = "Arquivo staging/top10_candidates.parquet não encontrado."
+    sample_output = "Arquivo data/staging/top10_candidates.parquet não encontrado."
     if df_top10 is not None and not df_top10.empty:
         sample_cols = [c for c in ["Compound", "Adducts", "score_final", "probabilidade", "rank"] if c in df_top10.columns]
         sample_output = df_top10[sample_cols].head(5).to_string(index=False) if sample_cols else df_top10.head(5).to_string(index=False)
@@ -529,7 +529,7 @@ def build_content():
         "realiza a transformação dos dados brutos provenientes da planilha Excel e do CSV de resultados "
         "(<i>merge_resultado.csv</i>). As etapas executadas são:"
     ))
-    elems.append(bullet("Leitura de arquivos Parquet do diretório <i>staging/</i>."))
+    elems.append(bullet("Leitura de arquivos Parquet do diretório <i>data/staging/</i>."))
     elems.append(bullet("Renomeação padronizada de colunas via mapeamentos <b>COL_MAP_IDENT</b>, "
                         "<b>COL_MAP_ABUND</b> e <b>COL_MAP_COMPOSTOS</b>."))
     elems.append(bullet("Validação e conversão de campos numéricos com a função "
@@ -655,7 +655,7 @@ def build_content():
         ["7",  "Score final",                              "score_final = score_base × (0.5 + 0.5 × score_software) × abundance_factor"],
         ["8",  "Softmax por grupo",                        "Probabilidade por feature_group = Compound || Adducts."],
         ["9",  "Top 10 por grupo",                          "Ordenação por probabilidade e seleção dos 5 primeiros por grupo."],
-        ["10", "Exportação",                               "Salvamento em staging/top10_candidates.parquet."],
+        ["10", "Exportação",                               "Salvamento em data/staging/top10_candidates.parquet."],
     ]
     tp = Table(passos, colWidths=[1.4 * cm, 4.6 * cm, 11 * cm])
     tp.setStyle(TableStyle([
@@ -939,12 +939,12 @@ def build_content():
     elems.append(secao("12. Estrutura de Arquivos Gerados"))
     arqs = [
         ["Arquivo",                           "Descrição"],
-        ["staging/identificacao_trusted.parquet",  "Dados de identificação limpos e renomeados"],
-        ["staging/abundancia_trusted.parquet",     "Dados de abundância limpos e renomeados"],
-        ["staging/compostos_trusted.parquet",      "Dados de compostos limpos e renomeados"],
-        ["staging/top10_candidates.parquet",        "Top 10 candidatos com todas as features engineered"],
-        ["staging/pubchem_raw.csv",                "Dados brutos extraídos do PubChem"],
-        ["staging/chebi_raw.csv",                  "Dados brutos extraídos do ChEBI"],
+        ["data/staging/identificacao_trusted.parquet",  "Dados de identificação limpos e renomeados"],
+        ["data/staging/abundancia_trusted.parquet",     "Dados de abundância limpos e renomeados"],
+        ["data/staging/compostos_trusted.parquet",      "Dados de compostos limpos e renomeados"],
+        ["data/staging/top10_candidates.parquet",        "Top 10 candidatos com todas as features engineered"],
+        ["data/staging/pubchem_raw.csv",                "Dados brutos extraídos do PubChem"],
+        ["data/staging/chebi_raw.csv",                  "Dados brutos extraídos do ChEBI"],
     ]
     tarqs = Table(arqs, colWidths=[7.5 * cm, 9.5 * cm])
     tarqs.setStyle(TableStyle([

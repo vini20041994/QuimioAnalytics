@@ -9,7 +9,7 @@ from pathlib import Path
 import sys
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-STAGING_DIR = PROJECT_ROOT / "staging"
+STAGING_DIR = PROJECT_ROOT / "data" / "staging"
 
 
 def safe_json_parse(value):

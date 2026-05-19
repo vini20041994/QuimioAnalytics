@@ -1,8 +1,8 @@
 import pandas as pd
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-STAGING_DIR = BASE_DIR / "staging"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+STAGING_DIR = PROJECT_ROOT / "data" / "staging"
 
 
 def get_parquet_path(file_name):

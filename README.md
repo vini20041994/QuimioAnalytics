@@ -27,7 +27,7 @@ O banco PostgreSQL é organizado em três schemas:
 
 Fluxo macro:
 
-Fontes internas e externas -> staging -> transformações -> core e ref -> ranking e análise
+Fontes internas e externas -> data/staging -> transformações -> core e ref -> ranking e análise
 
 ## 3. Estrutura do repositório
 
@@ -39,7 +39,8 @@ Arquivos e pastas de maior interesse:
 - [scripts/run/run_full_stack_etl.py](scripts/run/run_full_stack_etl.py): wrapper de compatibilidade para full stack.
 - [scripts/features/analytics.py](scripts/features/analytics.py): cálculo do ranking Top 10.
 - [docs](docs): documentação detalhada por tema.
-- [staging](staging): artefatos temporários e saídas intermediárias.
+- [data](data): entradas brutas e artefatos intermediários do pipeline.
+- [runtime](runtime): logs e backups operacionais.
 
 ## 4. Pré-requisitos
 
@@ -174,7 +175,7 @@ Resumo do método:
 
 Saída padrão:
 
-- [staging/top10_candidates.parquet](staging/top10_candidates.parquet)
+- [data/staging/top10_candidates.parquet](data/staging/top10_candidates.parquet)
 
 ## 9. ETLs externos (PubChem, ChEBI, ChemSpider)
 
@@ -204,7 +205,7 @@ Isto equivale a:
 
 1. **Extract** → Leitura de planilhas xlsx (IDENTIFICACAO, ABUND, Compostos)
 2. **Transform** → Normalização e validação de dados
-3. **Load** → Persistência em staging schema
+3. **Load** → Persistência no schema stg e geração de artefatos em data/staging
 4. **Ranking Top 10** → Seleção de 10 melhores candidatos por feature_group
 5. **ETL Externo** (ativado com `--run-external`)
    - Prepara entrada normalizada (top10_external_input.csv)
@@ -233,7 +234,7 @@ Ou via orquestrador:
 
 Acompanhe progresso em tempo real:
 
-	tail -f logs/*.log | grep "Processando\|Sucesso"
+	tail -f runtime/logs/*.log | grep "Processando\|Sucesso"
 
 ### 9.5 Bases de dados integradas
 
@@ -267,7 +268,7 @@ Consultas SQL recomendadas após execução:
 Critério mínimo:
 
 - Dados internos carregados em stg.
-- Top 10 gerado em staging.
+- Top 10 gerado em data/staging.
 - Carga em core realizada quando load-core estiver ativo.
 
 ## 11. Erros comuns e solução
@@ -290,10 +291,10 @@ Critério mínimo:
 
 5. ETL Externo muito lento
 - Sintoma: processamento de milhares de compostos demorando horas.
-- Solução: esperado para 5000-10000+ compostos. Use `tail -f logs/*.log` para acompanhar progresso.
+- Solução: esperado para 5000-10000+ compostos. Use `tail -f runtime/logs/*.log` para acompanhar progresso.
 
 6. "Arquivo Top 10 não foi gerado"
-- Sintoma: staging/top10_candidates.parquet não existe.
+- Sintoma: data/staging/top10_candidates.parquet não existe.
 - Solução: verificar se ETL interno rodou sem erros; validar dados em stg.identification_row.
 
 ## 12. Documentação detalhada
@@ -310,7 +311,7 @@ Guias importantes:
 
 ## 13. Status do projeto
 
-- ETL interno e staging operacional.
+- ETL interno e artefatos em data/staging operacionais.
 - Ranking Top 10 em produção no pipeline.
 - Integração externa com PubChem, ChEBI e ChemSpider.
 - Runner unificado para front-end e full stack.
