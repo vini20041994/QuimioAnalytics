@@ -4,20 +4,20 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .database_top_5 import load_top5_to_core
+from .database_top_10 import load_top10_to_core
 from .io import load_and_merge_planilhas
 from .scoring import (
     normalize_score_software,
     score_fragmentation,
     score_isotope,
     score_mass,
-    softmax_per_feature,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "staging" / "top5_candidates.parquet"
-DEFAULT_BATCH_NAME = "TOP5_RANKING"
+DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "staging" / "top10_candidates.parquet"
+DEFAULT_BATCH_NAME = "TOP10_RANKING"
+DEFAULT_TOP_N = 10
 
 RENAME_MAP = {
     "Neutral mass (Da)": "neutral_mass",
@@ -61,6 +61,7 @@ def run_probabilistic_ranking(
     output_path=DEFAULT_OUTPUT_PATH,
     load_core=False,
     batch_name=DEFAULT_BATCH_NAME,
+    top_n=DEFAULT_TOP_N,
 ):
     output_path = Path(output_path)
     df = load_and_merge_planilhas(
@@ -74,9 +75,10 @@ def run_probabilistic_ranking(
 
     numeric_score_cols = ["score_original", "fragment_score", "isotope_similarity", "mass_error_ppm"]
     for col in numeric_score_cols:
-        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+        df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    df["s_mass"] = df["mass_error_ppm"].abs().apply(score_mass)
+    df["abs_mass_error_ppm"] = df["mass_error_ppm"].abs()
+    df["s_mass"] = df["abs_mass_error_ppm"].apply(score_mass)
     df["s_fragmentation"] = df["fragment_score"].apply(score_fragmentation)
     df["s_isotope"] = df["isotope_similarity"].apply(score_isotope)
 
@@ -98,34 +100,42 @@ def run_probabilistic_ranking(
         + "||"
         + df["Adducts"].astype(str).str.strip()
     )
-    df["probabilidade"] = softmax_per_feature(df, feature_col="feature_group", score_col="score_final")
-
-    df = df.sort_values(["feature_group", "probabilidade"], ascending=[True, False])
+    # Classificação condicional:
+    # 1. fragment_score DESC (NaN = ausente, prioridade menor)
+    # 2. score_original DESC (tiebreaker ou quando fragment_score ausente)
+    # 3. abs_mass_error_ppm ASC (tiebreaker, desconsiderar sinal)
+    # 4. isotope_similarity DESC (tiebreaker final)
+    df = df.sort_values(
+        ["feature_group", "fragment_score", "score_original", "abs_mass_error_ppm", "isotope_similarity"],
+        ascending=[True, False, False, True, False],
+        na_position="last",
+    )
     df["rank"] = df.groupby("feature_group").cumcount() + 1
-    df_top5 = df[df["rank"] <= 5].copy()
+    df = df[df["rank"] <= int(top_n)].copy()
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    df_top5.to_parquet(output_path, index=False)
+    df.to_parquet(output_path, index=False)
 
-    print(f"Sucesso: {len(df_top5)} candidatos exportados para {output_path}")
-    print("\nTop 5 candidatos mais prováveis:")
+    print(f"Sucesso: {len(df)} candidatos exportados para {output_path} (Top {int(top_n)})")
+    print("\nCandidatos rankeados:")
     cols_exibir = [
         "rank",
         "Compound",
+        "fragment_score",
+        "score_original",
+        "abs_mass_error_ppm",
+        "isotope_similarity",
         "s_mass",
         "s_fragmentation",
         "s_isotope",
-        "score_software",
-        "score_final",
-        "probabilidade",
     ]
-    cols_exibir = [c for c in cols_exibir if c in df_top5.columns]
-    print(df_top5[cols_exibir].to_string(index=False))
+    cols_exibir = [c for c in cols_exibir if c in df.columns]
+    print(df[cols_exibir].to_string(index=False))
 
     if load_core:
-        load_top5_to_core(df_top5, batch_name=batch_name)
+        load_top10_to_core(df, batch_name=batch_name)
 
-    return df_top5
+    return df
 
 
 def main():
@@ -133,14 +143,19 @@ def main():
     parser.add_argument("--identificacao", default=str(PROJECT_ROOT / "dados_brutos" / "IDENTIFICACAO.xlsx"), help="Caminho da planilha de identificação (xlsx)")
     parser.add_argument("--abundancia", default=str(PROJECT_ROOT / "dados_brutos" / "ABUND.xlsx"), help="Caminho da planilha de abundância (xlsx)")
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT_PATH), help="Caminho do parquet de saida")
-    parser.add_argument("--load-core", action="store_true", help="Persiste o Top 5 no schema core")
+    parser.add_argument("--top-n", type=int, default=DEFAULT_TOP_N, help="Quantidade maxima de candidatos por feature_group")
+    parser.add_argument("--load-core", action="store_true", help="Persiste o Top 10 no schema core")
     parser.add_argument("--batch-name", default=DEFAULT_BATCH_NAME, help="Nome do batch em core.ingestion_batch")
     args = parser.parse_args()
+
+    if args.top_n < 1:
+        raise ValueError("--top-n deve ser maior ou igual a 1")
 
     run_probabilistic_ranking(
         identificacao_xlsx=args.identificacao,
         abund_xlsx=args.abundancia,
         output_path=args.output,
+        top_n=args.top_n,
         load_core=args.load_core,
         batch_name=args.batch_name,
     )

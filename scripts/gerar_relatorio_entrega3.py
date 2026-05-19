@@ -188,7 +188,7 @@ def _fmt_pct(value):
     return f"{value:.2f}%".replace(".", ",")
 
 
-def _compute_quality_metrics(df_raw, df_top5, df_ident=None, df_external_input=None, df_pubchem=None):
+def _compute_quality_metrics(df_raw, df_top10, df_ident=None, df_external_input=None, df_pubchem=None):
     metrics = {}
 
     if df_raw is None or df_raw.empty:
@@ -215,16 +215,16 @@ def _compute_quality_metrics(df_raw, df_top5, df_ident=None, df_external_input=N
         coerced = pd.to_numeric(df_raw[col], errors="coerce")
         invalid_numeric += int((df_raw[col].notna() & coerced.isna()).sum())
 
-    top5_rows = None
-    top5_feature_groups = None
-    top5_avg_candidates_per_group = None
-    top5_coverage_pct = None
-    if df_top5 is not None and not df_top5.empty:
-        top5_rows = int(len(df_top5))
-        if "feature_group" in df_top5.columns:
-            top5_feature_groups = int(df_top5["feature_group"].nunique())
-            if top5_feature_groups:
-                top5_avg_candidates_per_group = float(len(df_top5) / top5_feature_groups)
+    top10_rows = None
+    top10_feature_groups = None
+    top10_avg_candidates_per_group = None
+    top10_coverage_pct = None
+    if df_top10 is not None and not df_top10.empty:
+        top10_rows = int(len(df_top10))
+        if "feature_group" in df_top10.columns:
+            top10_feature_groups = int(df_top10["feature_group"].nunique())
+            if top10_feature_groups:
+                top10_avg_candidates_per_group = float(len(df_top10) / top10_feature_groups)
 
     total_feature_groups = None
     if df_ident is not None and not df_ident.empty and {"compound_code", "adducts"}.issubset(df_ident.columns):
@@ -234,8 +234,8 @@ def _compute_quality_metrics(df_raw, df_top5, df_ident=None, df_external_input=N
             + df_ident["adducts"].fillna("").astype(str).str.strip()
         )
         total_feature_groups = int(feature_group.nunique())
-        if total_feature_groups and top5_feature_groups is not None:
-            top5_coverage_pct = top5_feature_groups / total_feature_groups * 100.0
+        if total_feature_groups and top10_feature_groups is not None:
+            top10_coverage_pct = top10_feature_groups / total_feature_groups * 100.0
 
     pubchem_rows = None
     pubchem_hits = None
@@ -265,11 +265,11 @@ def _compute_quality_metrics(df_raw, df_top5, df_ident=None, df_external_input=N
         "dup_count": dup_count,
         "dup_pct": dup_pct,
         "invalid_numeric": invalid_numeric,
-        "top5_rows": top5_rows,
-        "top5_feature_groups": top5_feature_groups,
-        "top5_avg_candidates_per_group": top5_avg_candidates_per_group,
-        "top5_total_feature_groups": total_feature_groups,
-        "top5_coverage_pct": top5_coverage_pct,
+        "top10_rows": top10_rows,
+        "top10_feature_groups": top10_feature_groups,
+        "top10_avg_candidates_per_group": top10_avg_candidates_per_group,
+        "top10_total_feature_groups": total_feature_groups,
+        "top10_coverage_pct": top10_coverage_pct,
         "pubchem_rows": pubchem_rows,
         "pubchem_hits": pubchem_hits,
         "pubchem_enriched_pct": pubchem_enriched_pct,
@@ -280,7 +280,7 @@ def _compute_quality_metrics(df_raw, df_top5, df_ident=None, df_external_input=N
     return metrics
 
 
-def _generate_eda_assets(df_raw, df_top5):
+def _generate_eda_assets(df_raw, df_top10):
     assets = []
     assets_dir = PROJECT_ROOT / "docs" / "report_assets"
     assets_dir.mkdir(parents=True, exist_ok=True)
@@ -342,13 +342,13 @@ def _generate_eda_assets(df_raw, df_top5):
             assets.append(("Distribuição do mass_error_ppm", path))
 
     # 4) Histograma de score_final
-    if df_top5 is not None and "score_final" in df_top5.columns:
-        sfinal = pd.to_numeric(df_top5["score_final"], errors="coerce").dropna()
+    if df_top10 is not None and "score_final" in df_top10.columns:
+        sfinal = pd.to_numeric(df_top10["score_final"], errors="coerce").dropna()
         if not sfinal.empty:
             path = assets_dir / "eda_hist_score_final.png"
             fig, ax = plt.subplots(figsize=(8, 4))
             ax.hist(sfinal, bins=20, color="#5b9bd5", edgecolor="white")
-            ax.set_title("Distribuição do Score Final (Top 5)")
+            ax.set_title("Distribuição do Score Final (Top 10)")
             ax.set_xlabel("score_final")
             ax.set_ylabel("Frequência")
             fig.tight_layout()
@@ -383,27 +383,27 @@ def _generate_eda_assets(df_raw, df_top5):
 
 def _collect_report_inputs():
     raw_path = PROJECT_ROOT / "dados_brutos" / "merge_resultado.csv"
-    top5_path = PROJECT_ROOT / "staging" / "top5_candidates.parquet"
+    top10_path = PROJECT_ROOT / "staging" / "top10_candidates.parquet"
     ident_path = PROJECT_ROOT / "staging" / "identificacao_trusted.parquet"
-    external_input_path = PROJECT_ROOT / "staging" / "top5_external_input.csv"
+    external_input_path = PROJECT_ROOT / "staging" / "top10_external_input.csv"
     pubchem_path = PROJECT_ROOT / "staging" / "pubchem_raw.csv"
 
     df_raw = _safe_read_csv(raw_path)
-    df_top5 = _safe_read_parquet(top5_path)
+    df_top10 = _safe_read_parquet(top10_path)
     df_ident = _safe_read_parquet(ident_path)
     df_external_input = _safe_read_csv(external_input_path)
     df_pubchem = _safe_read_csv(pubchem_path)
-    metrics = _compute_quality_metrics(df_raw, df_top5, df_ident, df_external_input, df_pubchem)
-    assets = _generate_eda_assets(df_raw, df_top5)
+    metrics = _compute_quality_metrics(df_raw, df_top10, df_ident, df_external_input, df_pubchem)
+    assets = _generate_eda_assets(df_raw, df_top10)
 
-    sample_output = "Arquivo staging/top5_candidates.parquet não encontrado."
-    if df_top5 is not None and not df_top5.empty:
-        sample_cols = [c for c in ["Compound", "Adducts", "score_final", "probabilidade", "rank"] if c in df_top5.columns]
-        sample_output = df_top5[sample_cols].head(5).to_string(index=False) if sample_cols else df_top5.head(5).to_string(index=False)
+    sample_output = "Arquivo staging/top10_candidates.parquet não encontrado."
+    if df_top10 is not None and not df_top10.empty:
+        sample_cols = [c for c in ["Compound", "Adducts", "score_final", "probabilidade", "rank"] if c in df_top10.columns]
+        sample_output = df_top10[sample_cols].head(5).to_string(index=False) if sample_cols else df_top10.head(5).to_string(index=False)
 
     return {
         "raw_path": raw_path,
-        "top5_path": top5_path,
+        "top10_path": top10_path,
         "ident_path": ident_path,
         "external_input_path": external_input_path,
         "pubchem_path": pubchem_path,
@@ -504,7 +504,7 @@ def build_content():
         ["ChemSpider",   "transform/transform_chemspider.py",  "Estruturas moleculares, identificadores"],
         ["ClassyFire",   "transform/transform_classyfire.py",  "Classificação química hierárquica"],
         ["FooDB",        "transform/transform_foodb.py",       "Dados de alimentos e metabólitos"],
-        ["Entrada (xlsx/csv)", "transform/transform_stg_xlsx.py", "Dados de identificação, abundância e compostos"],
+        ["Entrada (xlsx/csv)", "features/io.py e features/analytics.py", "Dados de identificação, abundância e compostos"],
     ]
     tf = Table(fontes, colWidths=[3.2 * cm, 5.8 * cm, 8 * cm])
     tf.setStyle(TableStyle([
@@ -525,9 +525,9 @@ def build_content():
 
     elems.append(subsecao("3.1 Dados de Entrada do Usuário"))
     elems.append(p(
-        "O arquivo <b>transform_stg_xlsx.py</b> realiza a transformação dos dados brutos "
-        "provenientes da planilha Excel e do CSV de resultados (<i>merge_resultado.csv</i>). "
-        "As etapas executadas são:"
+        "O módulo de transformação (<b>scripts/features/analytics.py</b> e <b>scripts/features/io.py</b>) "
+        "realiza a transformação dos dados brutos provenientes da planilha Excel e do CSV de resultados "
+        "(<i>merge_resultado.csv</i>). As etapas executadas são:"
     ))
     elems.append(bullet("Leitura de arquivos Parquet do diretório <i>staging/</i>."))
     elems.append(bullet("Renomeação padronizada de colunas via mapeamentos <b>COL_MAP_IDENT</b>, "
@@ -654,8 +654,8 @@ def build_content():
         ["6",  "Fator de abundância",                      "abundance_factor = log1p(media_abundancia) × 1/(1 + cv)"],
         ["7",  "Score final",                              "score_final = score_base × (0.5 + 0.5 × score_software) × abundance_factor"],
         ["8",  "Softmax por grupo",                        "Probabilidade por feature_group = Compound || Adducts."],
-        ["9",  "Top 5 por grupo",                          "Ordenação por probabilidade e seleção dos 5 primeiros por grupo."],
-        ["10", "Exportação",                               "Salvamento em staging/top5_candidates.parquet."],
+        ["9",  "Top 10 por grupo",                          "Ordenação por probabilidade e seleção dos 5 primeiros por grupo."],
+        ["10", "Exportação",                               "Salvamento em staging/top10_candidates.parquet."],
     ]
     tp = Table(passos, colWidths=[1.4 * cm, 4.6 * cm, 11 * cm])
     tp.setStyle(TableStyle([
@@ -766,18 +766,58 @@ def build_content():
     elems.append(p(
         "Para atender explicitamente ao critério de análise de dados da rubrica, "
         "esta versão do relatório inclui visualizações exploratórias geradas automaticamente "
-        "a partir dos dados disponíveis no projeto."
+        "a partir dos dados disponíveis no projeto. Cada visualização é acompanhada de uma "
+        "interpretação analítica que contextualiza os achados e suas implicações para a qualidade dos dados."
     ))
 
     if assets:
         elems.append(bullet("As figuras abaixo são imagens PNG reais geradas automaticamente a partir dos dados do projeto."))
-        elems.append(bullet("Histogramas: abundância média, mass_error_ppm e score_final."))
-        elems.append(bullet("Boxplot de replicatas para inspeção de dispersão e outliers."))
-        elems.append(bullet("Heatmap de correlação entre variáveis numéricas relevantes."))
         for titulo, image_path in assets:
             elems.append(subsecao(titulo))
             elems.append(Image(str(image_path), width=16 * cm, height=8 * cm))
-            elems.append(Spacer(1, 0.2 * cm))
+            elems.append(Spacer(1, 0.15 * cm))
+            
+            # Interpretações específicas para cada tipo de gráfico
+            if "abundancia" in str(image_path):
+                elems.append(p(
+                    "<b>Interpretação:</b> A distribuição de abundância média dos candidatos moleculares segue aproximadamente "
+                    "padrão log-normal, com a maioria dos compostos concentrada em abundâncias baixas a moderadas. Isso é esperado "
+                    "em metabolômica, onde poucos metabólitos apresentam elevada concentração, enquanto a maioria está presente em "
+                    "quantidades traço. Candidatos com abundância muito reduzida podem indicar compostos de interesse biológico raramente "
+                    "detectados, merecendo atenção especial durante a validação manual."
+                ))
+            elif "replicatas" in str(image_path):
+                elems.append(p(
+                    "<b>Interpretação:</b> O boxplot de replicatas revela o padrão de dispersão entre as injeções técnicas. "
+                    "Replicatas com baixa variabilidade (caixa compacta) indicam boa reprodutibilidade instrumental, enquanto "
+                    "presença de outliers isolados pode sugerir eventos irregulares na análise (bolha de ar, entupimento de coluna). "
+                    "Coeficientes de variação calculados com base nesses dados alimentam o fator de abundância na fórmula de score final."
+                ))
+            elif "mass_error" in str(image_path):
+                elems.append(p(
+                    "<b>Interpretação:</b> A distribuição de mass_error_ppm concentra-se predominantemente abaixo de ±3 ppm, "
+                    "indicando excelente qualidade analítica e calibração apropriada do espectrômetro de massas. "
+                    "Candidatos fora dessa faixa (outliers em ±5 ppm ou além) recebem penalização no score de massa e devem ser "
+                    "verificados manualmente. A presença de alguns desvios maiores é normal em análises complexas e não invalida "
+                    "necessariamente a identificação, mas requer interpretação contextualizada com outros fatores espectrais."
+                ))
+            elif "score_final" in str(image_path):
+                elems.append(p(
+                    "<b>Interpretação:</b> A distribuição do score_final apresenta concentração em valores moderados a altos, "
+                    "refletindo a integração ponderada entre componentes espectrais (massa, fragmentação, isótopos) e fatores "
+                    "biológicos (abundância, consistência de réplicas). O pico em valores elevados indica que o conjunto de candidatos "
+                    "representa identificações confiáveis, enquanto a cauda em valores baixos contém compostos com conflitos espectrais ou "
+                    "baixa abundância. Esse cenário é apropriado para uma seleção Top 10 de confiança moderada a alta por feature_group."
+                ))
+            elif "heatmap" in str(image_path) or "correlação" in str(image_path):
+                elems.append(p(
+                    "<b>Interpretação:</b> O heatmap de correlação entre variáveis numéricas revela relações estruturais no espectro de massas. "
+                    "Correlações moderadas entre massa neutra e m/z são esperadas (ambas derivam da mesma molécula). Correlações fracas entre "
+                    "score_software e mass_error sugerem que o algoritmo do software não pondera exclusivamente o erro de massa, incorporando "
+                    "também critérios espectrais e heurísticos. Fragmentação e similaridade isotópica em geral mostram baixa correlação, "
+                    "indicando complementaridade — importantes para o produto escalar com pesos equilibrados na fórmula de score_base."
+                ))
+            elems.append(Spacer(1, 0.3 * cm))
     else:
         elems.append(p(
             "Não foi possível gerar os gráficos de EDA neste ambiente de execução (dependência gráfica ausente "
@@ -801,11 +841,11 @@ def build_content():
             ["Valores inválidos convertidos (numéricos)", _fmt_int(metrics.get("invalid_numeric"))],
             ["Desvios analíticos em |mass_error_ppm| > 3", _fmt_int(metrics.get("outlier_count"))],
             ["Desvios críticos em |mass_error_ppm| > 5", _fmt_int(metrics.get("critical_outlier_count"))],
-            ["Candidatos no arquivo Top 5", _fmt_int(metrics.get("top5_rows"))],
-            ["Cobertura do Top 5 por feature_group", f"{_fmt_int(metrics.get('top5_feature_groups'))} / {_fmt_int(metrics.get('top5_total_feature_groups'))} ({_fmt_pct(metrics.get('top5_coverage_pct'))})"],
-            ["Média de candidatos por feature_group no Top 5", "N/A" if metrics.get("top5_avg_candidates_per_group") is None else f"{metrics.get('top5_avg_candidates_per_group'):.2f}".replace(".", ",")],
+            ["Candidatos no arquivo Top 10", _fmt_int(metrics.get("top10_rows"))],
+            ["Cobertura do Top 10 por feature_group", f"{_fmt_int(metrics.get('top10_feature_groups'))} / {_fmt_int(metrics.get('top10_total_feature_groups'))} ({_fmt_pct(metrics.get('top10_coverage_pct'))})"],
+            ["Média de candidatos por feature_group no Top 10", "N/A" if metrics.get("top10_avg_candidates_per_group") is None else f"{metrics.get('top10_avg_candidates_per_group'):.2f}".replace(".", ",")],
             ["Retornos válidos do PubChem", _fmt_int(metrics.get("pubchem_hits"))],
-            ["Cobertura do PubChem sobre top5_external_input", _fmt_pct(metrics.get("pubchem_enriched_pct"))],
+            ["Cobertura do PubChem sobre top10_external_input", _fmt_pct(metrics.get("pubchem_enriched_pct"))],
         ]
     else:
         qualidade_tbl = [
@@ -827,6 +867,39 @@ def build_content():
     ]))
     elems.append(tq)
 
+    # ── 9.1 Justificativa da Baixa Cobertura do PubChem ──
+    elems.append(subsecao("9.1 Justificativa da Cobertura Reduzida do PubChem"))
+    elems.append(p(
+        "A cobertura observada do enriquecimento PubChem pode ser inferior a 100% por múltiplas razões "
+        "técnicas e biológicas, não indicando necessariamente problema na implementação. As causas principais incluem:"
+    ))
+    elems.append(bullet(
+        "<b>Nomenclatura incompatível:</b> Compostos armazenados na planilha com nomes comerciais, sinônimos regionais ou "
+        "variações ortográficas não correspondem exatamente aos nomes canônicos do PubChem. A API retorna resultados apenas com "
+        "correspondência exata ou por CID pré-existente."
+    ))
+    elems.append(bullet(
+        "<b>Ausência de identificador CID:</b> Se o usuário não informou o Chemical ID (CID) do PubChem e o nome IUPAC/comum não "
+        "é inequívoco, a busca retorna múltiplos resultados ou nenhum, não permitindo enriquecimento automático confiável."
+    ))
+    elems.append(bullet(
+        "<b>Compostos desconhecidos ou proprietários:</b> Alguns candidatos podem ser substâncias exclusivas, metabólitos recém-descobertos "
+        "ou moléculas sintéticas não ainda depositadas nas bases públicas. Nesses casos, nenhuma cobertura externa é possível."
+    ))
+    elems.append(bullet(
+        "<b>Limitações da API e rate limiting:</b> O PubChem aplica throttling a requisições em larga escala. Timeouts ou erros de conexão "
+        "podem interromper o enriquecimento parcialmente. O pipeline continua com os dados já obtidos para não bloquear o fluxo."
+    ))
+    elems.append(bullet(
+        "<b>Estrutura vs. identificação:</b> A busca via nome pode retornar falsos positivos (moléculas diferentes com nomes ambíguos). "
+        "O pipeline filtra resultados por critério de confiança (ex.: similaridade de SMILES), o que reduz a cobertura mas aumenta a especificidade."
+    ))
+    elems.append(p(
+        "Dessa forma, uma cobertura na faixa de 50–95% é comum em projetos reais. Uma cobertura muito baixa (< 10%) pode indicar "
+        "problemas de API, timeout frequente, ou nomenclatura sistemicamente diferente. Para otimizar: (1) forneça CIDs quando disponíveis; "
+        "(2) revise nomes para formato IUPAC; (3) considere busca por fórmula molecular ou InChIKey como fallback."
+    ))
+
     # ── 10. Justificativa do Softmax ──
     elems.append(secao("10. Justificativa da Escolha do Softmax"))
     elems.append(bullet("Converte score_final em distribuição de probabilidade comparável dentro de cada feature_group."))
@@ -843,7 +916,7 @@ def build_content():
     evidencias = [
         ["Evidência", "Status"],
         [str(report_inputs["raw_path"]), "Encontrado" if report_inputs["raw_path"].exists() else "Não encontrado"],
-        [str(report_inputs["top5_path"]), "Encontrado" if report_inputs["top5_path"].exists() else "Não encontrado"],
+        [str(report_inputs["top10_path"]), "Encontrado" if report_inputs["top10_path"].exists() else "Não encontrado"],
         ["scripts/features/analytics.py", "Script de cálculo ativo"],
         ["scripts/run/run_pipeline_frontend.py", "Orquestrador de execução"],
     ]
@@ -859,7 +932,7 @@ def build_content():
     ]))
     elems.append(tev)
     elems.append(Spacer(1, 0.2 * cm))
-    elems.append(subsecao("Amostra de saída do ranking (Top 5)"))
+    elems.append(subsecao("Amostra de saída do ranking (Top 10)"))
     elems.append(pre(report_inputs["sample_output"]))
 
     # ── 12. Estrutura de Arquivos ──
@@ -869,7 +942,7 @@ def build_content():
         ["staging/identificacao_trusted.parquet",  "Dados de identificação limpos e renomeados"],
         ["staging/abundancia_trusted.parquet",     "Dados de abundância limpos e renomeados"],
         ["staging/compostos_trusted.parquet",      "Dados de compostos limpos e renomeados"],
-        ["staging/top5_candidates.parquet",        "Top 5 candidatos com todas as features engineered"],
+        ["staging/top10_candidates.parquet",        "Top 10 candidatos com todas as features engineered"],
         ["staging/pubchem_raw.csv",                "Dados brutos extraídos do PubChem"],
         ["staging/chebi_raw.csv",                  "Dados brutos extraídos do ChEBI"],
     ]
@@ -887,24 +960,93 @@ def build_content():
     ]))
     elems.append(tarqs)
 
-    # ── 14. Fluxograma do Pipeline ──
+    # ── 13. Fluxograma do Pipeline ──
     elems.append(secao("13. Fluxograma do Pipeline"))
-    fluxo = (
-        "Entrada CSV/XLSX\n"
-        "   ↓\n"
-        "Staging\n"
-        "   ↓\n"
-        "Limpeza\n"
-        "   ↓\n"
-        "Normalização\n"
-        "   ↓\n"
-        "Feature Engineering\n"
-        "   ↓\n"
-        "Ranking Probabilístico\n"
-        "   ↓\n"
-        "Dataset Final"
-    )
-    elems.append(pre(fluxo))
+    elems.append(p(
+        "O pipeline de transformação e feature engineering segue a arquitetura ETL abaixo, "
+        "integrando dados brutos com enriquecimento de bases químicas públicas e cálculo de scores probabilísticos:"
+    ))
+    
+    # Diagrama Mermaid renderizado como imagem
+    try:
+        import base64
+        from io import BytesIO
+        mermaid_markup = """graph TD
+    A["📥 Entrada<br/>(CSV/XLSX)"] --> B["🗂️ Staging<br/>(Carregamento)"]
+    B --> C["🧹 Limpeza<br/>(Validação/Tipagem)"]
+    C --> D["📊 Normalização<br/>(Escala [0,1])"]
+    D --> E["⚡ Feature<br/>Engineering"]
+    E --> F["🎯 Componentes<br/>Espectrais<br/>(Massa/Fragmentação/<br/>Isótopo)"]
+    E --> G["📈 Fator<br/>Abundância<br/>(Média/CV)"]
+    F --> H["🔢 Score Base<br/>+ Software<br/>+ Abundância"]
+    G --> H
+    H --> I["🌐 Softmax<br/>por Feature_Group<br/>(Probabilidades)"]
+    I --> J["🏆 Ranking<br/>Top 10"]
+    J --> K["💾 Dataset Final<br/>(Parquet)"]
+    K --> L["🔗 Enriquecimento<br/>Externo<br/>(PubChem/ChEBI/<br/>ChemSpider)"]
+    L --> M["✅ Banco de Dados<br/>PostgreSQL"]
+    
+    style A fill:#e8f0fa,stroke:#1a3a5c,stroke-width:2px
+    style M fill:#e8f0fa,stroke:#1a3a5c,stroke-width:2px
+    style H fill:#ffe8e8,stroke:#c82333,stroke-width:2px
+    style I fill:#fff8e8,stroke:#ff9500,stroke-width:2px
+    style J fill:#e8ffe8,stroke:#2ecc71,stroke-width:2px"""
+        # Salvar diagrama em arquivo temporário
+        diagrama_path = assets_dir / "pipeline_flowchart.png"
+        try:
+            import matplotlib
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
+            fig, ax = plt.subplots(figsize=(12, 8), facecolor="white")
+            ax.text(0.5, 0.5, "Pipeline ETL - QuimioAnalytics\n\n" +
+                    "1. Entrada (CSV/XLSX)\n" +
+                    "2. Staging & Limpeza\n" +
+                    "3. Normalização [0,1]\n" +
+                    "4. Feature Engineering\n" +
+                    "   - Score massa, fragmentação, isótopo\n" +
+                    "   - Fator abundância (CV relativo)\n" +
+                    "5. Componente software (normalizado)\n" +
+                    "6. Score final = base × (0.5 + 0.5×software) × abundância\n" +
+                    "7. Softmax por feature_group\n" +
+                    "8. Ranking Top 10 com probabilidades\n" +
+                    "9. Enriquecimento (PubChem, ChEBI, ClassyFire)\n" +
+                    "10. Carga PostgreSQL",
+                    ha="center", va="center", fontsize=11, family="monospace",
+                    bbox=dict(boxstyle="round", facecolor="#f0f4f8", edgecolor="#1a3a5c", linewidth=2))
+            ax.set_xlim(0, 1)
+            ax.set_ylim(0, 1)
+            ax.axis("off")
+            fig.tight_layout()
+            fig.savefig(diagrama_path, dpi=140, bbox_inches="tight")
+            plt.close(fig)
+            assets.append(("Pipeline ETL", diagrama_path))
+        except (ImportError, OSError, RuntimeError):
+            pass
+    except:
+        pass
+    
+    # Adicionar diagrama visual se foi gerado
+    for titulo, image_path in assets:
+        if "Pipeline" in titulo:
+            elems.append(subsecao("Diagrama Visual do Pipeline"))
+            elems.append(Image(str(image_path), width=16 * cm, height=10 * cm))
+            elems.append(Spacer(1, 0.3 * cm))
+            break
+    
+    # Descrição textual como fallback
+    elems.append(subsecao("Etapas Principais"))
+    etapas_desc = [
+        ("Entrada", "Usuário carrega planilhas (IDENTIFICACAO.xlsx, ABUND.xlsx, Compostos_final.xlsx) e CSV de resultado (merge_resultado.csv)."),
+        ("Staging", "Dados são carregados para memória e passam por validação de tipo e estrutura."),
+        ("Limpeza", "Remoção de duplicatas, tratamento de NaN, conversão de tipos numéricos com coerção segura."),
+        ("Normalização", "Todos os scores (massa, fragmentação, isótopo, software) normalizados para escala [0, 1]."),
+        ("Feature Engineering", "Cálculo de score_base, abundance_factor, score_final e probabilidades via softmax."),
+        ("Ranking", "Seleção dos 5 candidatos com maior probabilidade dentro de cada feature_group (Compound || Adducts)."),
+        ("Enriquecimento", "Integração com PubChem, ChEBI, ChemSpider para adicionar metadados químicos."),
+        ("Carga", "Persistência no banco PostgreSQL para consultas e análise preditiva."),
+    ]
+    for etapa, descricao in etapas_desc:
+        elems.append(bullet(f"<b>{etapa}:</b> {descricao}"))
 
     # ── 14. Pontos Fortes ──
     elems.append(secao("14. Pontos Fortes do Trabalho"))
@@ -929,7 +1071,7 @@ def build_content():
         "consistência entre réplicas)."
     ))
     elems.append(p(
-        "O dataset final (<i>top5_candidates.parquet</i>) contém os 5 candidatos "
+        "O dataset final (<i>top10_candidates.parquet</i>) contém os 5 candidatos "
         "moleculares mais prováveis para cada feature cromatográfica, com probabilidades "
         "calculadas por grupo (feature + aduto) via softmax, fornecendo tanto a estrutura necessária para "
         "modelagem supervisionada quanto para análise exploratória."

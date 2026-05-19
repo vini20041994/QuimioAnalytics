@@ -30,7 +30,7 @@ Objetivo:
 
 O que o script faz:
   1) Instala/verifica pre-requisitos de sistema (Python e Docker) no Linux apt
-  2) Executa orquestrador full-stack (venv, banco, schema/migrations, ETL, Top 5)
+  2) Executa orquestrador full-stack (venv, banco, schema/migrations, ETL, Top 10)
 
 Opcoes:
   --db-pass VALOR            Senha do PostgreSQL (obrigatorio)
@@ -45,7 +45,7 @@ Opcoes:
   --overwrite-inputs         Permite sobrescrever dados_brutos
 
   --with-external            Executa ETLs externos (PubChem/ChEBI/ChemSpider)
-  --no-load-core             Nao persiste Top 5 no schema core
+  --no-load-core             Nao persiste Top 10 no schema core
   --skip-install             Pula etapa de instalacao de pre-requisitos
 
   -h, --help                 Exibe esta ajuda

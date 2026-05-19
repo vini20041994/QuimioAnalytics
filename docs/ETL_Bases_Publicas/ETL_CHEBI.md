@@ -40,7 +40,7 @@ Instalação rápida:
 Exemplos:
 
     python3 scripts/run/run_etl_chebi.py chebi_test_input.txt
-    python3 scripts/run/run_etl_chebi.py staging/top5_external_input.csv
+    python3 scripts/run/run_etl_chebi.py staging/top10_external_input.csv
 
 ## 5. Execução etapa por etapa
 

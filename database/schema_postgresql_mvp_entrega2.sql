@@ -313,7 +313,7 @@ CREATE TABLE IF NOT EXISTS ref.candidate_match (
     match_score           NUMERIC(10,6),
     match_status          VARCHAR(30) NOT NULL DEFAULT 'proposed',
     basis_fields          JSONB,
-    is_top5_candidate     BOOLEAN NOT NULL DEFAULT FALSE,
+    is_top10_candidate     BOOLEAN NOT NULL DEFAULT FALSE,
     CONSTRAINT ck_match_score CHECK (match_score IS NULL OR (match_score >= 0 AND match_score <= 1))
 );
 

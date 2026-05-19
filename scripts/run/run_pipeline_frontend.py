@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Orquestrador unico para front-end: entrada de planilhas -> ETL principal -> Top 5 -> carga no banco.
+Orquestrador unico para front-end: entrada de planilhas -> ETL principal -> Top 10 -> carga no banco.
 
 Fluxo padrao:
 1) Copia planilhas de entrada para dados_brutos/
 2) Executa ETL principal (extract_stg_xlsx -> transform_stg_xlsx -> load_stg_transformed)
-3) Executa ranking probabilistico Top 5
-4) (Opcional) Integra bases externas via Top 5
+3) Executa ranking probabilistico Top 10
+4) (Opcional) Integra bases externas via Top 10
 
 Exemplos:
   python3 scripts/run/run_pipeline_frontend.py \
@@ -38,7 +38,7 @@ DADOS_BRUTOS_DIR = PROJECT_ROOT / "dados_brutos"
 STAGING_DIR = PROJECT_ROOT / "staging"
 
 RUN_ETL_SCRIPT = RUN_DIR / "run_etl.py"
-RUN_EXTERNAL_SCRIPT = RUN_DIR / "run_etl_top5_external.py"
+RUN_EXTERNAL_SCRIPT = RUN_DIR / "run_etl_top10_external.py"
 RANKING_SCRIPT = FEATURES_DIR / "analytics.py"
 VENV_DIR = PROJECT_ROOT / "venv"
 PYTHON_BIN = VENV_DIR / "bin" / "python3"
@@ -60,7 +60,7 @@ DEPS = [
 DEST_IDENTIFICACAO = DADOS_BRUTOS_DIR / "IDENTIFICACAO.xlsx"
 DEST_ABUNDANCIA = DADOS_BRUTOS_DIR / "ABUND.xlsx"
 DEST_COMPOSTOS = DADOS_BRUTOS_DIR / "Compostos_final.xlsx"
-DEFAULT_TOP5_OUTPUT = STAGING_DIR / "top5_candidates.parquet"
+DEFAULT_TOP10_OUTPUT = STAGING_DIR / "top10_candidates.parquet"
 
 
 class PipelineError(RuntimeError):
@@ -318,26 +318,26 @@ def _parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--output-top5",
-        default=str(DEFAULT_TOP5_OUTPUT),
-        help="Caminho do arquivo Top 5 (parquet).",
+        "--output-top10",
+        default=str(DEFAULT_TOP10_OUTPUT),
+        help="Caminho do arquivo Top 10 (parquet).",
     )
     parser.add_argument(
         "--batch-name",
-        default="TOP5_RANKING",
+        default="TOP10_RANKING",
         help="Nome do batch para carga em core.ingestion_batch.",
     )
 
     parser.add_argument(
         "--load-core",
         action="store_true",
-        help="Persiste Top 5 no schema core.",
+        help="Persiste Top 10 no schema core.",
     )
 
     parser.add_argument(
         "--run-external",
         action="store_true",
-        help="Executa ETLs externos (PubChem/ChEBI/ChemSpider) apos Top 5.",
+        help="Executa ETLs externos (PubChem/ChEBI/ChemSpider) apos Top 10.",
     )
     parser.add_argument(
         "--sources",
@@ -425,14 +425,14 @@ def main() -> None:
             overwrite=args.overwrite_inputs,
         )
 
-        output_top5 = Path(args.output_top5).expanduser().resolve()
+        output_top10 = Path(args.output_top10).expanduser().resolve()
 
         summary["inputs"] = {
             "identificacao": str(identificacao_path),
             "abundancia": str(abundancia_path),
             "compostos": str(compostos_path),
         }
-        summary["artifacts"]["top5_output"] = str(output_top5)
+        summary["artifacts"]["top10_output"] = str(output_top10)
 
         py = summary["python_exec"]
 
@@ -456,7 +456,9 @@ def main() -> None:
             "--abundancia",
             str(abundancia_path),
             "--output",
-            str(output_top5),
+            str(output_top10),
+            "--top-n",
+            "10",
         ]
         if args.load_core:
             ranking_cmd += ["--load-core", "--batch-name", args.batch_name]
@@ -464,18 +466,18 @@ def main() -> None:
         external_cmd = [
             py,
             str(RUN_EXTERNAL_SCRIPT),
-            "--top5",
-            str(output_top5),
+            "--top10",
+            str(output_top10),
             "--sources",
             *args.sources,
         ]
 
         execution_plan = [
             (etl_cmd, "ETL Principal"),
-            (ranking_cmd, "Ranking Top 5"),
+            (ranking_cmd, "Ranking Top 10"),
         ]
         if args.run_external:
-            execution_plan.append((external_cmd, "ETL Externo via Top 5"))
+            execution_plan.append((external_cmd, "ETL Externo via Top 10"))
 
         if args.dry_run:
             summary["ok"] = True
@@ -491,8 +493,8 @@ def main() -> None:
                 else:
                     summary["steps"].append(runner(cmd, name))
 
-            if not output_top5.exists():
-                raise PipelineError(f"Arquivo Top 5 nao foi gerado: {output_top5}")
+            if not output_top10.exists():
+                raise PipelineError(f"Arquivo Top 10 nao foi gerado: {output_top10}")
 
             summary["ok"] = True
 
@@ -505,7 +507,7 @@ def main() -> None:
     else:
         if summary["ok"]:
             print("\nPipeline unificado concluido com sucesso.")
-            print(f"Top 5: {summary['artifacts'].get('top5_output')}")
+            print(f"Top 10: {summary['artifacts'].get('top10_output')}")
         else:
             print("\nPipeline unificado falhou.")
             if summary["error"]:

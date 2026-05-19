@@ -11,7 +11,7 @@ O projeto organiza dados laboratoriais internos e integra bases químicas públi
 Objetivos principais:
 
 - Padronizar a ingestão de planilhas internas de identificação e abundância.
-- Produzir um Top 5 probabilístico por feature e aduto.
+- Produzir um Top 10 probabilístico por feature e aduto.
 - Enriquecer compostos com PubChem, ChEBI e ChemSpider.
 - Disponibilizar estrutura confiável para análises, APIs e dashboards.
 
@@ -37,7 +37,7 @@ Arquivos e pastas de maior interesse:
 - [scripts](scripts): código ETL e orquestração.
 - [scripts/run/run_pipeline_frontend.py](scripts/run/run_pipeline_frontend.py): orquestrador unificado.
 - [scripts/run/run_full_stack_etl.py](scripts/run/run_full_stack_etl.py): wrapper de compatibilidade para full stack.
-- [scripts/features/analytics.py](scripts/features/analytics.py): cálculo do ranking Top 5.
+- [scripts/features/analytics.py](scripts/features/analytics.py): cálculo do ranking Top 10.
 - [docs](docs): documentação detalhada por tema.
 - [staging](staging): artefatos temporários e saídas intermediárias.
 
@@ -94,13 +94,13 @@ Variáveis de ambiente:
 
 ### 5.2 Execução recomendada com orquestrador unificado
 
-Execução completa (setup + banco + pipeline):
+Execução completa (setup + banco + pipeline + externas):
 
-	python3 scripts/run/run_pipeline_frontend.py --full-stack --load-core --run-external
+	python3 scripts/run/run_full_stack_etl.py --db-pass QuimioAnalytics --skip-db-init --skip-deps
 
-Execução somente pipeline (ambiente já pronto):
+Ou sem integrações externas (mais rápido):
 
-	python3 scripts/run/run_pipeline_frontend.py --load-core --run-external
+	python3 scripts/run/run_full_stack_etl.py --db-pass QuimioAnalytics --skip-db-init --skip-deps --no-external
 
 Simulação sem executar comandos:
 
@@ -108,23 +108,31 @@ Simulação sem executar comandos:
 
 ## 6. Formas de execução por cenário
 
-### Cenário A: laboratório ou novo ambiente
+### Cenário A: laboratório ou novo ambiente (com integrações externas)
 
-Use full stack para preparar tudo em uma chamada:
+Use full stack para preparar tudo e executar ETL completo com bases externas:
 
-	python3 scripts/run/run_pipeline_frontend.py --full-stack --load-core --run-external --db-pass <SUA_SENHA>
+	python3 scripts/run/run_full_stack_etl.py --db-pass QuimioAnalytics --skip-db-init --skip-deps
 
-### Cenário B: banco e venv já existentes
+### Cenário A-B: laboratório ou novo ambiente (sem integrações externas - mais rápido)
 
-Rode somente ETL interno + ranking + integração externa:
+Setup completo sem consultar bases públicas:
 
-	python3 scripts/run/run_pipeline_frontend.py --load-core --run-external
+	python3 scripts/run/run_full_stack_etl.py --db-pass QuimioAnalytics --skip-db-init --skip-deps --no-external
 
-### Cenário C: apenas ETL interno e Top 5
+### Cenário B: banco e venv já existentes (com externas)
+
+Rode somente ETL + ranking + integrações externas (padrão):
+
+	python3 scripts/run/run_pipeline_frontend.py --load-core
+
+### Cenário C: apenas ETL interno e Top 10
+
+Sem consultar bases externas:
 
 	python3 scripts/run/run_pipeline_frontend.py --load-core --no-external
 
-### Cenário D: entrada customizada de planilhas
+### Cenário D: entrada customizada de planilhas (com externas)
 
 	python3 scripts/run/run_pipeline_frontend.py \
 	  --identificacao /tmp/IDENTIFICACAO.xlsx \
@@ -132,17 +140,24 @@ Rode somente ETL interno + ranking + integração externa:
 	  --compostos /tmp/Compostos_final.xlsx \
 	  --overwrite-inputs --load-core
 
+### Cenário E: apenas PubChem (não ChEBI ou ChemSpider)
+
+	python3 scripts/run/run_pipeline_frontend.py --load-core --run-external --sources pubchem
+
 ## 7. Orquestradores e compatibilidade
 
 O projeto possui um ponto principal de execução:
 
 - [scripts/run/run_pipeline_frontend.py](scripts/run/run_pipeline_frontend.py)
 
-Compatibilidade com comandos antigos:
+Wrapper de compatibilidade (recomendado para produção):
 
-- [scripts/run/run_full_stack_etl.py](scripts/run/run_full_stack_etl.py) continua disponível e redireciona para o orquestrador unificado com o modo full stack.
+- [scripts/run/run_full_stack_etl.py](scripts/run/run_full_stack_etl.py)
+  - Automáticamente inclui `--full-stack` e `--run-external` com PubChem, ChEBI e ChemSpider
+  - Pode ser desabilitado com `--no-external` para modo rápido
+  - Suporta customização de sources com `--run-external --sources fonte1 fonte2`
 
-## 8. Ranking Top 5
+## 8. Ranking Top 10
 
 Script principal do ranking:
 
@@ -159,19 +174,80 @@ Resumo do método:
 
 Saída padrão:
 
-- [staging/top5_candidates.parquet](staging/top5_candidates.parquet)
+- [staging/top10_candidates.parquet](staging/top10_candidates.parquet)
 
-## 9. ETLs externos
+## 9. ETLs externos (PubChem, ChEBI, ChemSpider)
 
-Execução consolidada pelo orquestrador unificado:
+O projeto integra automaticamente dados de três bases de referência química pública após o ranking Top 10.
 
-	python3 scripts/run/run_pipeline_frontend.py --run-external --sources pubchem chebi chemspider
+### 9.1 Execução com integrações externas
 
-Execução por fonte:
+**Opção A: Via wrapper full stack (recomendado)**
 
-- PubChem: [scripts/run/run_etl_pubchem.py](scripts/run/run_etl_pubchem.py)
-- ChEBI: [scripts/run/run_etl_chebi.py](scripts/run/run_etl_chebi.py)
-- ChemSpider: [scripts/run/run_etl_chemspider.py](scripts/run/run_etl_chemspider.py)
+O wrapper `run_full_stack_etl.py` agora inclui integrações externas **por padrão**:
+
+	python3 scripts/run/run_full_stack_etl.py --db-pass QuimioAnalytics --skip-db-init --skip-deps
+
+Isto equivale a:
+
+	python3 scripts/run/run_pipeline_frontend.py --full-stack --db-pass QuimioAnalytics --skip-db-init --skip-deps --run-external --sources pubchem chebi chemspider
+
+**Opção B: Desabilitar integrações externas**
+
+	python3 scripts/run/run_full_stack_etl.py --db-pass QuimioAnalytics --skip-db-init --skip-deps --no-external
+
+**Opção C: Customizar fontes**
+
+	python3 scripts/run/run_full_stack_etl.py --db-pass QuimioAnalytics --skip-db-init --skip-deps --run-external --sources pubchem chebi
+
+### 9.2 Fluxo de processamento (com externas)
+
+1. **Extract** → Leitura de planilhas xlsx (IDENTIFICACAO, ABUND, Compostos)
+2. **Transform** → Normalização e validação de dados
+3. **Load** → Persistência em staging schema
+4. **Ranking Top 10** → Seleção de 10 melhores candidatos por feature_group
+5. **ETL Externo** (ativado com `--run-external`)
+   - Prepara entrada normalizada (top10_external_input.csv)
+   - Consulta PubChem API para CIDs, propriedades, sinônimos
+   - Consulta ChEBI para compostos e ontologia
+   - Consulta ChemSpider para IDs complementares
+   - Carrega resultados em tabelas de referência (stg.pubchem_compound_raw, etc)
+
+### 9.3 Execução por fonte individual
+
+Se preferir rodar apenas uma base:
+
+- **PubChem**: `python3 scripts/run/run_etl_pubchem.py`
+- **ChEBI**: `python3 scripts/run/run_etl_chebi.py`
+- **ChemSpider**: `python3 scripts/run/run_etl_chemspider.py`
+
+Ou via orquestrador:
+
+	python3 scripts/run/run_pipeline_frontend.py --run-external --sources pubchem
+
+### 9.4 Tempo estimado
+
+- ETL Interno: ~12 segundos
+- Ranking: ~9 segundos
+- **ETL Externo: 20-120 minutos** (depende da quantidade de compostos e latência de rede)
+
+Acompanhe progresso em tempo real:
+
+	tail -f logs/*.log | grep "Processando\|Sucesso"
+
+### 9.5 Bases de dados integradas
+
+| Base | Cobertura | Implementação |
+|------|-----------|----------------|
+| PubChem | Compostos por nome, fórmula ou CID | REST API |
+| ChEBI | Ontologia e relações químicas | REST API + XML parsing |
+| ChemSpider | IDs complementares e propriedades | Web scraping com Scrapy |
+
+Documentação individual:
+
+- [docs/ETL_Bases_Publicas/PUBCHEM.md](docs/ETL_Bases_Publicas/PUBCHEM.md)
+- [docs/ETL_Bases_Publicas/ETL_CHEBI.md](docs/ETL_Bases_Publicas/ETL_CHEBI.md)
+- [docs/ETL_Bases_Publicas/CHEMSPIDER.md](docs/ETL_Bases_Publicas/CHEMSPIDER.md)
 
 ## 10. Validação rápida
 
@@ -191,7 +267,7 @@ Consultas SQL recomendadas após execução:
 Critério mínimo:
 
 - Dados internos carregados em stg.
-- Top 5 gerado em staging.
+- Top 10 gerado em staging.
 - Carga em core realizada quando load-core estiver ativo.
 
 ## 11. Erros comuns e solução
@@ -205,12 +281,20 @@ Critério mínimo:
 - Solução: exportar DB_PASS ou usar --db-pass.
 
 3. Falha de DNS no PubChem
-- Sintoma: erro de resolução de nome.
+- Sintoma: erro de resolução de nome nas integrações externas.
 - Solução: repetir execução quando a rede estabilizar.
 
 4. ChemSpider sem resultados
 - Sintoma: zero linhas em stg.chemspider_compound_raw.
-- Solução: comportamento esperado para parte dos compostos.
+- Solução: comportamento esperado para parte dos compostos (nem todos têm ID no ChemSpider).
+
+5. ETL Externo muito lento
+- Sintoma: processamento de milhares de compostos demorando horas.
+- Solução: esperado para 5000-10000+ compostos. Use `tail -f logs/*.log` para acompanhar progresso.
+
+6. "Arquivo Top 10 não foi gerado"
+- Sintoma: staging/top10_candidates.parquet não existe.
+- Solução: verificar se ETL interno rodou sem erros; validar dados em stg.identification_row.
 
 ## 12. Documentação detalhada
 
@@ -227,7 +311,7 @@ Guias importantes:
 ## 13. Status do projeto
 
 - ETL interno e staging operacional.
-- Ranking Top 5 em produção no pipeline.
+- Ranking Top 10 em produção no pipeline.
 - Integração externa com PubChem, ChEBI e ChemSpider.
 - Runner unificado para front-end e full stack.
 

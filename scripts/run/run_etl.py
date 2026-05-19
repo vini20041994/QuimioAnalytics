@@ -8,6 +8,7 @@ Uso:
 
 Variaveis de ambiente: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS
 """
+import os
 import sys
 import subprocess
 import argparse
@@ -28,7 +29,9 @@ def _python_exec():
 def run_step(script_path, step_name, extra_args=None):
     print(f"\n{'=' * 60}\n{step_name}\n{'=' * 60}")
     cmd = [_python_exec(), str(script_path)] + (extra_args or [])
-    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(PROJECT_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False, env=env)
     if result.stdout:
         print(result.stdout)
     if result.returncode != 0:
