@@ -33,9 +33,7 @@ def _ensure_candidate_columns(cur):
     cur.execute(
         """
         ALTER TABLE core.candidate_identification
-        ADD COLUMN IF NOT EXISTS score_base NUMERIC(12,6),
-        ADD COLUMN IF NOT EXISTS score_final NUMERIC(20,10),
-        ADD COLUMN IF NOT EXISTS global_probability NUMERIC(20,10),
+        ADD COLUMN IF NOT EXISTS is_tied BOOLEAN,
         ADD COLUMN IF NOT EXISTS abundance_mean NUMERIC(20,8),
         ADD COLUMN IF NOT EXISTS abundance_cv NUMERIC(12,6)
         """
@@ -66,7 +64,7 @@ def _get_or_create_batch(cur, batch_name):
         VALUES (%s, %s)
         RETURNING batch_id
         """,
-        (batch_name, "Carga do ranking probabilistico Top 10"),
+        (batch_name, "Carga de candidatos com ranking biologico"),
     )
     return cur.fetchone()[0]
 
@@ -176,19 +174,19 @@ def _upsert_abundance_measurements(cur, batch_id, feature_id, row):
                 feature_id,
                 replicate_id,
                 abundance_value,
-                "Carga automatica a partir do ranking Top 10",
+                "Carga automatica a partir do ranking biologico",
             ),
         )
 
 
-def load_top10_to_core(df_top10, batch_name="TOP10_RANKING"):
+def load_candidates_to_core(df_candidates, batch_name="BIOLOGICAL_RANKING"):
     with psycopg2.connect(**get_db_params()) as conn:
         with conn.cursor() as cur:
             _ensure_candidate_columns(cur)
             batch_id = _get_or_create_batch(cur, batch_name)
 
             inserted = 0
-            for _, row in df_top10.iterrows():
+            for _, row in df_candidates.iterrows():
                 feature_id = _upsert_feature(cur, row, batch_id)
                 _upsert_abundance_measurements(cur, batch_id, feature_id, row)
 
@@ -201,8 +199,8 @@ def load_top10_to_core(df_top10, batch_name="TOP10_RANKING"):
                     """,
                     (
                         feature_id,
-                        int(row["rank"]),
-                        _safe_value(row.get("Compound ID")),
+                        int(row.get("rank_group", row.get("rank", 0))),
+                        _safe_value(row.get("original_id") or row.get("Compound ID")),
                     ),
                 )
 
@@ -220,21 +218,19 @@ def load_top10_to_core(df_top10, batch_name="TOP10_RANKING"):
                         description,
                         link_url,
                         candidate_rank_local,
-                        score_base,
-                        score_final,
-                        global_probability,
+                        is_tied,
                         abundance_mean,
                         abundance_cv
                     )
                     VALUES (
                         %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s
                     )
                     RETURNING candidate_id
                     """,
                     (
                         feature_id,
-                        _safe_value(row.get("Compound ID")),
+                        _safe_value(row.get("original_id") or row.get("Compound ID")),
                         _safe_value(row.get("Adducts")),
                         _safe_value(row.get("formula")),
                         _safe_value(row.get("score_original")),
@@ -243,18 +239,14 @@ def load_top10_to_core(df_top10, batch_name="TOP10_RANKING"):
                         _safe_value(row.get("isotope_similarity")),
                         _safe_value(row.get("Description")),
                         _safe_value(row.get("Link")),
-                        int(row["rank"]),
-                        _safe_value(row.get("score_base")),
-                        _safe_value(row.get("score_final")),
-                        _safe_value(row.get("probabilidade")),
+                        int(row.get("rank_group", row.get("rank", 0))),
+                        bool(row.get("is_tied", False)),
                         _safe_value(row.get("media_abundancia")),
                         _safe_value(row.get("cv")),
                     ),
                 )
                 candidate_id = cur.fetchone()[0]
 
-                # Matching formula → ref.external_compound
-                # → core.feature_annotation + ref.candidate_match
                 formula = _safe_value(row.get("formula"))
                 inchikey = _safe_value(row.get("InChIKey") or row.get("inchikey"))
                 if formula or inchikey:
@@ -277,25 +269,28 @@ def load_top10_to_core(df_top10, batch_name="TOP10_RANKING"):
                     match_row = cur.fetchone()
                     if match_row:
                         ext_id = match_row[0]
-                        prob = _safe_value(row.get("probabilidade"))
+                        rank_group = int(row.get("rank_group", row.get("rank", 0)))
                         write_feature_annotation(
-                            cur, feature_id, ext_id,
+                            cur,
+                            feature_id,
+                            ext_id,
                             annotation_level="putative",
-                            annotation_source="Top10_formula_match",
-                            confidence_score=float(prob) if prob is not None else None,
-                            is_primary=(int(row["rank"]) == 1),
+                            annotation_source="biological_ladder_formula_match",
+                            confidence_score=None,
+                            is_primary=(rank_group == 1),
                         )
                         write_candidate_match(
-                            cur, candidate_id, ext_id,
+                            cur,
+                            candidate_id,
+                            ext_id,
                             match_method="formula_match" if not inchikey else "inchikey_match",
-                            match_score=float(prob) if prob is not None else None,
+                            match_score=None,
                             match_status="proposed",
                             basis_fields={"formula": formula, "inchikey": inchikey},
-                            is_top10_candidate=True,
-                            match_rank_global=int(row["rank"]),
+                            rank_global=rank_group,
                         )
                 inserted += 1
 
             conn.commit()
 
-    print(f"Sucesso: {inserted} candidatos integrados ao schema core (batch={batch_name})")
+    print(f"Sucesso: {inserted} candidatos integrados ao schema core (ranking biologico, batch={batch_name})")

@@ -123,7 +123,7 @@ ESCADINHA BIOLÓGICA (CORRETO):
 | ID | Problema | Arquivo(s) Afetados | Impacto |
 |---|---|---|---|
 | A1 | Lógica de negócio espalhada (sem Service Layer) | `scripts/run/*.py`, `scripts/features/*.py` | Alto acoplamento; difícil manter |
-| A2 | SQL espalhado (sem Repository Pattern) | `scripts/load/*.py`, `scripts/features/database_top_10.py` | Schema drift silencioso |
+| A2 | SQL espalhado (sem Repository Pattern) | `scripts/load/*.py`, `scripts/features/database_candidates.py` | Schema drift silencioso |
 | A3 | Credenciais podem vazar em logs | `scripts/config.py` | PGPASSWORD exposto no `ps aux` |
 | A4 | Porta 5432 exposta sem restrição | `docker-compose.yml` | Acesso não-autorizado ao banco |
 | A5 | Sem validação de path input | `scripts/run/run_etl_user_input.py` | Path traversal possível |
@@ -170,7 +170,7 @@ tests/
 ├── integration/
 │   └── test_runners_smoke.py
 └── validation/
-    └── test_top10_schema.py
+    └── test_candidates_schema.py
 
 database/migrations/
 └── 010_add_unique_constraints_ref.sql ← NOVO
@@ -444,7 +444,7 @@ Capacidade: **29 pontos**
 | S2-03 | Adaptar `analytics.py` para usar `BiologicalRankingEngine` | `scripts/features/analytics.py` | 3 | Backend | Todo | Pipeline roda; output contém colunas `rank_group` e `is_tied` |
 | S2-04 | Preservar IDs originais do equipamento no pipeline | `scripts/features/analytics.py`, `scripts/load/load_stg_transformed.py` | 3 | Dados | Todo | Coluna `original_id` presente no parquet final sem alteração |
 | S2-05 | Remover normalização de scores em `scoring.py` | `scripts/features/scoring.py` | 2 | Backend | Todo | Funções retornam valor bruto sem transformação para \[0,1\] |
-| S2-06 | Atualizar output para salvar TODOS os candidatos | `scripts/features/analytics.py` | 3 | Backend | Todo | Parquet de saída contém todos os candidatos (não só top-10) |
+| S2-06 | Atualizar output para salvar TODOS os candidatos | `scripts/features/analytics.py` | 3 | Backend | Todo | Parquet de saída contém todos os candidatos (não só Ranking de candidatos) |
 | S2-07 | Validar escadinha com especialista (100 features amostra) | — | 5 | Dados | Todo | Especialista assina: "a ordem faz sentido biologicamente" |
 
 ---
@@ -481,7 +481,7 @@ Capacidade: **28 pontos**
 | S4-06 | Normalizar tratamento de erros nos extratores legados | `scripts/extract/extract_foodb.py`, `extract_hmdb.py`, `extract_classyfire.py`, `extract_lotus.py` | 3 | Backend | Todo | Capturas específicas para `requests`/parsing; sem `Exception` genérica |
 | S4-07 | Adicionar timeout explícito em todos os requests HTTP | `scripts/extract/extract_foodb.py`, `extract_hmdb.py`, `extract_classyfire.py`, `extract_lotus.py` | 2 | Backend | Todo | Toda chamada HTTP tem `timeout=` explícito |
 | S4-08 | Rodar validação de migrations em banco limpo e inicializado | `scripts/run/run_pipeline_frontend.py`, `scripts/manage_db.py` | 2 | DevOps | Todo | Evidência de sucesso nos dois cenários |
-| S4-09 | Criar índice de candidatos para query de ranking | `database/schema_postgresql_mvp_entrega2.sql` | 3 | Dados | Todo | `EXPLAIN ANALYZE` para top-10 mostra Index Scan |
+| S4-09 | Criar índice de candidatos para query de ranking | `database/schema_postgresql_mvp_entrega2.sql` | 3 | Dados | Todo | `EXPLAIN ANALYZE` para Ranking de candidatos mostra Index Scan |
 | S4-10 | Adicionar soft-delete e `updated_at` em tabelas CORE | `database/schema_postgresql_mvp_entrega2.sql` | 1 | Dados | Todo | Colunas `deleted_at`, `updated_at` existem em `core.feature` e `core.candidate_identification` |
 
 ---
@@ -493,7 +493,7 @@ Capacidade: **37 pontos**
 | ID | Tarefa | Arquivo(s) | Pts | Dono | Status | Critério de aceite |
 |---|---|---|---:|---|---|---|
 | S5-01 | Substituir INSERT row-by-row por COPY no staging | `scripts/load/load_stg_transformed.py` | 8 | Dados | Todo | Tempo de carga ≥ 10× menor no dataset de referência |
-| S5-02 | Aplicar COPY no load top-10 core | `scripts/features/database_top_10.py` | 5 | Dados | Todo | Redução mensurável de latência |
+| S5-02 | Aplicar COPY no load Ranking de candidatos core | `scripts/features/database_candidates.py` | 5 | Dados | Todo | Redução mensurável de latência |
 | S5-03 | Criar `http_client.py` com retry/backoff/timeout unificado | `scripts/extract/http_client.py` *(novo)*, `scripts/extract/extract_pubchem.py`, `extract_chebi.py` | 8 | Backend | Todo | Extratores usam cliente único; timeout e retry configuráveis |
 | S5-04 | Criar `quality_reporter.py` — data quality por transformação | `scripts/loggers/quality_reporter.py` *(novo)*, `scripts/transform/transform_stg_xlsx.py` | 5 | Backend | Todo | Report JSON com `rows_input`, `rows_output`, `rows_lost`, `loss_reasons` |
 | S5-05 | Padronizar logging estruturado por batch | `scripts/run/run_pipeline_frontend.py`, `scripts/load/load_pubchem.py`, `load_chebi.py`, `load_chemspider.py` | 5 | Backend | Todo | Logs contêm `timestamp`, `level`, `batch_id`, `stage` |

@@ -40,7 +40,7 @@ Instalação rápida:
 Exemplos:
 
     python3 scripts/run/run_etl_pubchem.py compound_list.txt
-    python3 scripts/run/run_etl_pubchem.py data/staging/top10_external_input.csv
+    python3 scripts/run/run_etl_pubchem.py data/staging/candidates_external_input.csv
 
 ## 5. Execução etapa por etapa
 

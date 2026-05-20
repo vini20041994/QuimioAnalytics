@@ -17,7 +17,7 @@ Para apresentacao ao idealizador, recomenda-se descrever a estrutura em linguage
 
 - Base de dados organizada para receber, tratar e armazenar os resultados.
 - Rotina de processamento que integra dados internos e fontes externas.
-- Modulo de priorizacao de candidatos (Top 10) para apoiar analise.
+- Modulo de priorizacao de candidatos (ranking de candidatos) para apoiar analise.
 - Documentacao organizada para orientar execucao e manutencao.
 - Conjunto inicial de verificacoes automatizadas de qualidade.
 
@@ -32,7 +32,7 @@ Status: Avancado
 
 ### 3.2 Priorizacao de candidatos quimicos
 Status: Avancado
-- Metodo de classificacao Top 10 operacional.
+- Metodo de classificacao ranking de candidatos operacional.
 - Resultado final pronto para apoiar tomada de decisao analitica.
 
 ### 3.3 Estrutura de armazenamento e historico
@@ -189,7 +189,7 @@ Tempo sugerido: 1 minuto
 
 Fala sugerida:
 
-"Neste momento, o projeto ja apresenta entregas concretas. A estrutura principal esta organizada, o processo de tratamento dos dados ja foi estabelecido, a priorizacao Top 10 ja esta operacional e a integracao com bases externas prioritarias ja foi implementada. Portanto, o projeto ja ultrapassou a fase exclusivamente conceitual e demonstra capacidade real de funcionamento."
+"Neste momento, o projeto ja apresenta entregas concretas. A estrutura principal esta organizada, o processo de tratamento dos dados ja foi estabelecido, a priorizacao ranking de candidatos ja esta operacional e a integracao com bases externas prioritarias ja foi implementada. Portanto, o projeto ja ultrapassou a fase exclusivamente conceitual e demonstra capacidade real de funcionamento."
 
 Mensagem principal:
 - reforcar maturidade inicial e evidencias de execucao.

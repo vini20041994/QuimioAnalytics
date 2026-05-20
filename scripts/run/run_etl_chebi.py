@@ -6,7 +6,7 @@ Uso:
     python3 run_etl_chebi.py <arquivo_entrada>
 
 Exemplo:
-    python3 run_etl_chebi.py data/staging/top10_external_input.csv
+    python3 run_etl_chebi.py data/staging/candidates_external_input.csv
 """
 import subprocess
 import sys

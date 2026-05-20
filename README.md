@@ -11,7 +11,7 @@ O projeto organiza dados laboratoriais internos e integra bases químicas públi
 Objetivos principais:
 
 - Padronizar a ingestão de planilhas internas de identificação e abundância.
-- Produzir um Top 10 probabilístico por feature e aduto.
+- Produzir um ranking de candidatos probabilístico por feature e aduto.
 - Enriquecer compostos com PubChem, ChEBI e ChemSpider.
 - Disponibilizar estrutura confiável para análises, APIs e dashboards.
 
@@ -37,7 +37,7 @@ Arquivos e pastas de maior interesse:
 - [scripts](scripts): código ETL e orquestração.
 - [scripts/run/run_pipeline_frontend.py](scripts/run/run_pipeline_frontend.py): orquestrador unificado.
 - [scripts/run/run_full_stack_etl.py](scripts/run/run_full_stack_etl.py): wrapper de compatibilidade para full stack.
-- [scripts/features/analytics.py](scripts/features/analytics.py): cálculo do ranking Top 10.
+- [scripts/features/analytics.py](scripts/features/analytics.py): cálculo do ranking ranking de candidatos.
 - [docs](docs): documentação detalhada por tema.
 - [data](data): entradas brutas e artefatos intermediários do pipeline.
 - [runtime](runtime): logs e backups operacionais.
@@ -127,7 +127,7 @@ Rode somente ETL + ranking + integrações externas (padrão):
 
 	python3 scripts/run/run_pipeline_frontend.py --load-core
 
-### Cenário C: apenas ETL interno e Top 10
+### Cenário C: apenas ETL interno e ranking de candidatos
 
 Sem consultar bases externas:
 
@@ -158,7 +158,7 @@ Wrapper de compatibilidade (recomendado para produção):
   - Pode ser desabilitado com `--no-external` para modo rápido
   - Suporta customização de sources com `--run-external --sources fonte1 fonte2`
 
-## 8. Ranking Top 10
+## 8. Ranking ranking de candidatos
 
 Script principal do ranking:
 
@@ -175,11 +175,11 @@ Resumo do método:
 
 Saída padrão:
 
-- [data/staging/top10_candidates.parquet](data/staging/top10_candidates.parquet)
+- [data/staging/top_candidates.parquet](data/staging/top_candidates.parquet)
 
 ## 9. ETLs externos (PubChem, ChEBI, ChemSpider)
 
-O projeto integra automaticamente dados de três bases de referência química pública após o ranking Top 10.
+O projeto integra automaticamente dados de três bases de referência química pública após o ranking ranking de candidatos.
 
 ### 9.1 Execução com integrações externas
 
@@ -206,9 +206,9 @@ Isto equivale a:
 1. **Extract** → Leitura de planilhas xlsx (IDENTIFICACAO, ABUND, Compostos)
 2. **Transform** → Normalização e validação de dados
 3. **Load** → Persistência no schema stg e geração de artefatos em data/staging
-4. **Ranking Top 10** → Seleção de 10 melhores candidatos por feature_group
+4. **Ranking ranking de candidatos** → Seleção de 10 melhores candidatos por feature_group
 5. **ETL Externo** (ativado com `--run-external`)
-   - Prepara entrada normalizada (top10_external_input.csv)
+   - Prepara entrada normalizada (candidates_external_input.csv)
    - Consulta PubChem API para CIDs, propriedades, sinônimos
    - Consulta ChEBI para compostos e ontologia
    - Consulta ChemSpider para IDs complementares
@@ -268,7 +268,7 @@ Consultas SQL recomendadas após execução:
 Critério mínimo:
 
 - Dados internos carregados em stg.
-- Top 10 gerado em data/staging.
+- ranking de candidatos gerado em data/staging.
 - Carga em core realizada quando load-core estiver ativo.
 
 ## 11. Erros comuns e solução
@@ -293,8 +293,8 @@ Critério mínimo:
 - Sintoma: processamento de milhares de compostos demorando horas.
 - Solução: esperado para 5000-10000+ compostos. Use `tail -f runtime/logs/*.log` para acompanhar progresso.
 
-6. "Arquivo Top 10 não foi gerado"
-- Sintoma: data/staging/top10_candidates.parquet não existe.
+6. "Arquivo ranking de candidatos não foi gerado"
+- Sintoma: data/staging/top_candidates.parquet não existe.
 - Solução: verificar se ETL interno rodou sem erros; validar dados em stg.identification_row.
 
 ## 12. Documentação detalhada
@@ -312,7 +312,7 @@ Guias importantes:
 ## 13. Status do projeto
 
 - ETL interno e artefatos em data/staging operacionais.
-- Ranking Top 10 em produção no pipeline.
+- Ranking ranking de candidatos em produção no pipeline.
 - Integração externa com PubChem, ChEBI e ChemSpider.
 - Runner unificado para front-end e full stack.
 

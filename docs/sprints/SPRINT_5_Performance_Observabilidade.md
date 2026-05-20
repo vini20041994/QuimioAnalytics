@@ -21,7 +21,7 @@ Sprint 5 implementa:
 ## Principais Pontos Levantados
 
 ### 1. INSERTs row-by-row são inescaláveis
-- **Arquivo**: `scripts/load/load_stg_transformed.py`, `scripts/features/database_top_10.py`
+- **Arquivo**: `scripts/load/load_stg_transformed.py`, `scripts/features/database_candidates.py`
 - **Problema**: Loop `for i, row in df.iterrows()` faz 50 K viagens de rede
 - **Impacto**: 45–60 min para 50 K linhas; 3–5 horas para 500 K
 
@@ -286,7 +286,7 @@ services:
 | ID | Tarefa | Critério |
 |---|---|---|
 | S5-01 | COPY em staging | Tempo ≥ 10× menor (< 5 min para 50 K linhas) |
-| S5-02 | COPY em top-10 core | Redução mensurável vs baseline |
+| S5-02 | COPY em Ranking de candidatos core | Redução mensurável vs baseline |
 | S5-03 | Cliente HTTP | Todos os extratores usam `HTTPClientWithRetry`; timeout e retry funcionam |
 | S5-04 | Quality reporter | `to_json()` outputs `rows_lost`, `loss_reasons` corretos |
 | S5-05 | Logging estruturado | Logs contêm `timestamp`, `batch_id`, `stage`, `level` |
@@ -306,7 +306,7 @@ services:
 ## Próximos Passos
 
 - [ ] **Dia 1–2**: Refatorar `load_stg_transformed.py` com COPY; medir baseline → otimizado
-- [ ] **Dia 3**: Refatorar `database_top_10.py` com COPY
+- [ ] **Dia 3**: Refatorar `database_candidates.py` com COPY
 - [ ] **Dia 4**: Criar `http_client.py`; integrar em `extract_pubchem.py` e `extract_chebi.py`
 - [ ] **Dia 5**: Criar `quality_reporter.py`; integrar em transformações
 - [ ] **Dia 6**: Padronizar logging; adicionar batch_id a todos os runners

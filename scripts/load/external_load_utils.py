@@ -385,7 +385,7 @@ def write_feature_annotation(cur, feature_id, external_compound_id, annotation_l
 
 def write_candidate_match(cur, candidate_id, external_compound_id, match_method,
                           match_score=None, match_status="proposed", basis_fields=None,
-                          is_top10_candidate=True, match_rank_global=None):
+                          rank_global=None):
     """Insere match candidato→external_compound se ainda não existir."""
     cur.execute(
         """
@@ -401,14 +401,19 @@ def write_candidate_match(cur, candidate_id, external_compound_id, match_method,
         """
         INSERT INTO ref.candidate_match
             (candidate_id, external_compound_id, match_method, match_score, match_status,
-             basis_fields, is_top10_candidate, match_rank_global)
+             basis_fields, is_ranked_candidate, match_rank_global)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """,
-        (candidate_id, external_compound_id, match_method,
-         float(match_score) if match_score is not None else None,
-         match_status,
-         Json(basis_fields) if basis_fields else None,
-         is_top10_candidate, match_rank_global),
+        (
+            candidate_id,
+            external_compound_id,
+            match_method,
+            float(match_score) if match_score is not None else None,
+            match_status,
+            Json(basis_fields) if basis_fields else None,
+            False,
+            rank_global,
+        ),
     )
 
 

@@ -1,8 +1,10 @@
 # Sprint 2 — Paradigma de Ranking
 
-**Status**: 🔴 Todo — PRIORIDADE MÁXIMA  
+**Status**: 🟡 Em andamento (6/7 tarefas concluídas) — PRIORIDADE MÁXIMA  
 **Capacidade**: 29 pontos  
 **Objetivo**: Substituir completamente o ranking probabilístico pela Escadinha Biológica, eliminando qualquer agregação matemática do pipeline.
+
+**Atualizado em**: 2026-05-20
 
 ---
 
@@ -37,7 +39,7 @@ Os pesquisadores foram explícitos: o sistema deve **apoiar a decisão humana**,
 - **Problema**: Identificadores do equipamento podem ser renomeados durante o pipeline.
 - **Impacto**: Rastreabilidade quebrada — impossível voltar ao dado bruto original.
 
-### 4. Top-10 como filtro, não como ranking
+### 4. Ranking de candidatos como filtro, não como ranking
 - **Arquivo**: `scripts/features/analytics.py`
 - **Problema**: Pipeline salva apenas os 10 primeiros candidatos, descartando os demais.
 - **Impacto**: Candidatos biologicamente relevantes podem ser silenciosamente perdidos.
@@ -69,7 +71,7 @@ Passo 5: EMPATE TOTAL          → mostrar TODAS as opções; pesquisador decide
 ### Mudanças em `scripts/features/analytics.py`
 - Remover: `score_base`, `score_final`, `abundance_factor`, `softmax`
 - Adicionar: instância de `BiologicalRankingEngine`
-- Salvar **todos** os candidatos (não filtrar para top-10)
+- Salvar **todos** os candidatos (não filtrar para Ranking de candidatos)
 
 ### Mudanças em `scripts/features/scoring.py`
 - Remover normalização para `[0,1]`
@@ -79,15 +81,22 @@ Passo 5: EMPATE TOTAL          → mostrar TODAS as opções; pesquisador decide
 
 ## Critérios de Aceite por Tarefa
 
-| ID | Tarefa | Critério |
-|---|---|---|
-| S2-01 | Criar `BiologicalRankingEngine` | Classe implementa os 5 passos; testes da Sprint 3 passam |
-| S2-02 | Remover agregação de `analytics.py` | Sem `score_base`, `softmax`, `abundance_factor` no arquivo |
-| S2-03 | Adaptar pipeline para usar engine | Output contém colunas `rank_group` e `is_tied` |
-| S2-04 | Preservar IDs originais | Coluna `original_id` presente no parquet final sem alteração |
-| S2-05 | Remover normalização em `scoring.py` | Funções retornam valor bruto |
-| S2-06 | Salvar todos os candidatos | Parquet de saída não tem limite de linhas por grupo |
-| S2-07 | Validação com especialista | Especialista assina: "a ordem faz sentido biologicamente" |
+| ID | Tarefa | Critério | Status | Evidência |
+|---|---|---|---|---|
+| S2-01 | Criar `BiologicalRankingEngine` | Classe implementa os 5 passos; testes da Sprint 3 passam | ✅ Concluído | `scripts/models/biological_ranking_engine.py` implementado com ordenação por fragmentação, isotopia, erro de massa absoluto, fórmula e preservação de empates |
+| S2-02 | Remover agregação de `analytics.py` | Sem `score_base`, `softmax`, `abundance_factor` no arquivo | ✅ Concluído | `scripts/features/analytics.py` usa `BiologicalRankingEngine` e não contém agregação probabilística |
+| S2-03 | Adaptar pipeline para usar engine | Output contém colunas `rank_group` e `is_tied` | ✅ Concluído | `run_biological_candidate_ranking()` chama `apply_ranking()` e persiste `rank_group` + `is_tied` no parquet |
+| S2-04 | Preservar IDs originais | Coluna `original_id` presente no parquet final sem alteração | ✅ Concluído | `scripts/features/analytics.py` preenche `original_id` a partir de `Compound ID` (fallback `Compound`) |
+| S2-05 | Remover normalização em `scoring.py` | Funções retornam valor bruto | ✅ Concluído | `scripts/features/scoring.py` retorna valores brutos e desativa `softmax_per_feature` |
+| S2-06 | Salvar todos os candidatos | Parquet de saída não tem limite de linhas por grupo | ✅ Concluído | Saída `biological_ranking_candidates.parquet` é gerada sem corte Top 10 |
+| S2-07 | Validação com especialista | Especialista assina: "a ordem faz sentido biologicamente" | 🟡 Em execução | Amostra de 100 features gerada em `data/staging/s2_dia5_amostra_100_features.csv` e ata criada em `docs/sprints/evidencias/s2_dia5_validacao_especialista.md`; pendente assinatura |
+
+### Alterações aplicadas nesta atualização
+
+- Arquivo legado `scripts/features/database_top_10.py` removido do projeto.
+- Documentação sincronizada com o estado atual da implementação da Escadinha Biológica.
+- Dia 5 executado (preparo técnico): amostra estratificada de 100 features gerada com 50 casos com empate e 50 sem empate.
+- Evidências criadas: `data/staging/s2_dia5_amostra_100_features.csv` e `docs/sprints/evidencias/s2_dia5_validacao_especialista.md`.
 
 ---
 
@@ -100,11 +109,11 @@ Passo 5: EMPATE TOTAL          → mostrar TODAS as opções; pesquisador decide
 
 ## Próximos Passos
 
-- [ ] **Hoje**: Criar `scripts/models/biological_ranking_engine.py` com a estrutura base da classe
-- [ ] **Dia 1–2**: Implementar `_rank_group()` com os 5 passos sequenciais
-- [ ] **Dia 3**: Remover toda agregação de `analytics.py` e `scoring.py`
-- [ ] **Dia 4**: Adaptar pipeline end-to-end; validar output com dataset de exemplo
-- [ ] **Dia 5**: Agendar sessão de validação com especialista (100 features amostra)
+- [x] **Hoje**: Criar `scripts/models/biological_ranking_engine.py` com a estrutura base da classe
+- [x] **Dia 1–2**: Implementar `_rank_group()` com os 5 passos sequenciais
+- [x] **Dia 3**: Remover toda agregação de `analytics.py` e `scoring.py`
+- [x] **Dia 4**: Adaptar pipeline end-to-end; validar output com dataset de exemplo
+- [~] **Dia 5**: Material de validação executado e documentado; pendente sessão final com especialista e assinatura do parecer
 - [ ] **Semana 2**: Sprint 3 — escrever testes que validam o comportamento da escadinha
 
 ---

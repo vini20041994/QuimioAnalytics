@@ -35,7 +35,7 @@ Sprint 4 implementa garantias de integridade que são pré-requisitos para Sprin
 - **Impacto**: Insere duplicata porque conflito não é detectado
 
 ### 4. Sem índice para query de candidatos
-- **Problema**: Pipeline busca "top 10 candidatos por feature" — sem índice, é scan completo
+- **Problema**: Pipeline busca "ranking de candidatos candidatos por feature" — sem índice, é scan completo
 - **Impacto**: Query leva minutos em lugar de milissegundos
 
 ### 5. Sem soft-delete nem updated_at
@@ -166,7 +166,7 @@ CREATE INDEX idx_feature_not_deleted
 | S4-06 | Erros específicos | Capturas para `requests.Timeout`, `HTTPError`, `JSONDecodeError` |
 | S4-07 | Timeouts explícitos | `timeout=30` em todas as chamadas HTTP |
 | S4-08 | Idempotência validada | Rodar migrations em banco limpo e já-inicializado — ambos com sucesso |
-| S4-09 | Índice de candidatos | `EXPLAIN ANALYZE` mostra Index Scan para top-10 |
+| S4-09 | Índice de candidatos | `EXPLAIN ANALYZE` mostra Index Scan para Ranking de candidatos |
 | S4-10 | Soft-delete + updated_at | Colunas existem em `core.feature` e `core.candidate_identification` |
 
 ---

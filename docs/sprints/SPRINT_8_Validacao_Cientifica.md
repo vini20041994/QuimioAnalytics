@@ -143,7 +143,7 @@ REQUIRED_COLUMNS = [
 
 def test_output_has_required_columns():
     """Valida que output tem todas as colunas obrigatórias."""
-    df = pd.read_parquet("data/staging/top10_output.parquet")
+    df = pd.read_parquet("data/staging/top_candidates_output.parquet")
     
     missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
     assert not missing, f"Colunas faltando: {missing}"
@@ -153,7 +153,7 @@ def test_output_has_required_columns():
 
 def test_rank_group_is_positive():
     """Valida que rank_group ≥ 1."""
-    df = pd.read_parquet("data/staging/top10_output.parquet")
+    df = pd.read_parquet("data/staging/top_candidates_output.parquet")
     
     assert (df["rank_group"] >= 1).all(), "Há rank_group < 1"
     print(f"✓ Todos os rank_group ≥ 1 (min={df['rank_group'].min()})")
@@ -161,7 +161,7 @@ def test_rank_group_is_positive():
 
 def test_tied_flags_consistency():
     """Valida que is_tied é True só quando há múltiplos candidatos por rank."""
-    df = pd.read_parquet("data/staging/top10_output.parquet")
+    df = pd.read_parquet("data/staging/top_candidates_output.parquet")
     
     for rank in df["rank_group"].unique():
         group = df[df["rank_group"] == rank]

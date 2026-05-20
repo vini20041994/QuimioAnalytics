@@ -26,7 +26,7 @@ try:  # pragma: no cover
         score_statistics_by_batch,
         features_above_score_threshold,
         duplicate_molecular_formulas,
-        top10_candidates_per_feature,
+        top_candidates_per_feature,
         candidate_match_view,
     )
 except ModuleNotFoundError:

@@ -27,7 +27,7 @@ Sprint 7 institucionaliza essas melhorias numa arquitetura escalável:
 ## Principais Pontos Levantados
 
 ### 1. Lógica de negócio espalhada entre arquivos
-- **Problema**: SQL está em `analytics.py`, `load_stg_transformed.py`, `database_top_10.py`
+- **Problema**: SQL está em `analytics.py`, `load_stg_transformed.py`, `database_candidates.py`
 - **Impacto**: Change para schema → 3+ arquivos para atualizar; alto risco de inconsistência
 
 ### 2. Sem padrão de acesso a dados

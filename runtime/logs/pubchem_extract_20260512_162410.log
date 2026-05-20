@@ -1,7 +1,7 @@
 2026-05-12 16:24:10,864 - INFO - 🔍 Verificando conectividade com PubChem API...
 2026-05-12 16:24:11,371 - INFO - ✅ Conectividade OK - API PubChem acessível
 2026-05-12 16:24:11,372 - INFO - 
-2026-05-12 16:24:11,402 - INFO - Carregado 9844 compostos de /home/vinicius_joacir/QuimioAnalytics/staging/top10_external_input.csv
+2026-05-12 16:24:11,402 - INFO - Carregado 9844 compostos de /home/vinicius_joacir/QuimioAnalytics/staging/candidates_external_input.csv
 2026-05-12 16:24:11,402 - INFO - 
 ============================================================
 2026-05-12 16:24:11,402 - INFO - Iniciando extração de 9844 compostos do PubChem

@@ -1,23 +1,12 @@
 #!/usr/bin/env python3
 """
-Orquestrador unico para front-end: entrada de planilhas -> ETL principal -> Top 10 -> carga no banco.
+Orquestrador unico para front-end: entrada de planilhas -> ETL principal -> ranking de candidatos -> carga no banco.
 
 Fluxo padrao:
 1) Copia planilhas de entrada para data/raw_inputs/
 2) Executa ETL principal (extract_stg_xlsx -> transform_stg_xlsx -> load_stg_transformed)
-3) Executa ranking probabilistico Top 10
-4) (Opcional) Integra bases externas via Top 10
-
-Exemplos:
-  python3 scripts/run/run_pipeline_frontend.py \
-      --identificacao /tmp/IDENTIFICACAO.xlsx \
-      --abundancia /tmp/ABUND.xlsx
-
-  python3 scripts/run/run_pipeline_frontend.py \
-      --identificacao /tmp/IDENTIFICACAO.xlsx \
-      --abundancia /tmp/ABUND.xlsx \
-      --compostos /tmp/Compostos_final.xlsx \
-      --run-external --sources pubchem chebi chemspider --json
+3) Executa ranking biologico de candidatos
+4) (Opcional) Integra bases externas via candidatos ranqueados
 """
 
 import argparse
@@ -45,7 +34,7 @@ from scripts.config import (
 
 
 RUN_ETL_SCRIPT = RUN_SCRIPTS_DIR / "run_etl.py"
-RUN_EXTERNAL_SCRIPT = RUN_SCRIPTS_DIR / "run_etl_top10_external.py"
+RUN_EXTERNAL_SCRIPT = RUN_SCRIPTS_DIR / "run_etl_candidates_external.py"
 RANKING_SCRIPT = FEATURES_DIR / "analytics.py"
 VENV_DIR = PROJECT_ROOT / "venv"
 PYTHON_BIN = VENV_DIR / "bin" / "python3"
@@ -65,7 +54,7 @@ DEPS = [
 DEST_IDENTIFICACAO = RAW_INPUTS_DIR / "IDENTIFICACAO.xlsx"
 DEST_ABUNDANCIA = RAW_INPUTS_DIR / "ABUND.xlsx"
 DEST_COMPOSTOS = RAW_INPUTS_DIR / "Compostos_final.xlsx"
-DEFAULT_TOP10_OUTPUT = STAGING_DIR / "top10_candidates.parquet"
+DEFAULT_CANDIDATES_OUTPUT = STAGING_DIR / "biological_ranking_candidates.parquet"
 
 
 class PipelineError(RuntimeError):
@@ -323,26 +312,26 @@ def _parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--output-top10",
-        default=str(DEFAULT_TOP10_OUTPUT),
-        help="Caminho do arquivo Top 10 (parquet).",
+        "--output-candidates",
+        default=str(DEFAULT_CANDIDATES_OUTPUT),
+        help="Caminho do arquivo de candidatos ranqueados (parquet).",
     )
     parser.add_argument(
         "--batch-name",
-        default="TOP10_RANKING",
+        default="BIOLOGICAL_RANKING",
         help="Nome do batch para carga em core.ingestion_batch.",
     )
 
     parser.add_argument(
         "--load-core",
         action="store_true",
-        help="Persiste Top 10 no schema core.",
+        help="Persiste candidatos no schema core.",
     )
 
     parser.add_argument(
         "--run-external",
         action="store_true",
-        help="Executa ETLs externos (PubChem/ChEBI/ChemSpider) apos Top 10.",
+        help="Executa ETLs externos (PubChem/ChEBI/ChemSpider) apos ranking de candidatos.",
     )
     parser.add_argument(
         "--sources",
@@ -430,14 +419,14 @@ def main() -> None:
             overwrite=args.overwrite_inputs,
         )
 
-        output_top10 = Path(args.output_top10).expanduser().resolve()
+        output_candidates = Path(args.output_candidates).expanduser().resolve()
 
         summary["inputs"] = {
             "identificacao": str(identificacao_path),
             "abundancia": str(abundancia_path),
             "compostos": str(compostos_path),
         }
-        summary["artifacts"]["top10_output"] = str(output_top10)
+        summary["artifacts"]["candidates_output"] = str(output_candidates)
 
         py = summary["python_exec"]
 
@@ -461,9 +450,7 @@ def main() -> None:
             "--abundancia",
             str(abundancia_path),
             "--output",
-            str(output_top10),
-            "--top-n",
-            "10",
+            str(output_candidates),
         ]
         if args.load_core:
             ranking_cmd += ["--load-core", "--batch-name", args.batch_name]
@@ -471,18 +458,18 @@ def main() -> None:
         external_cmd = [
             py,
             str(RUN_EXTERNAL_SCRIPT),
-            "--top10",
-            str(output_top10),
+            "--candidates-input",
+            str(output_candidates),
             "--sources",
             *args.sources,
         ]
 
         execution_plan = [
             (etl_cmd, "ETL Principal"),
-            (ranking_cmd, "Ranking Top 10"),
+            (ranking_cmd, "Ranking Biologico de Candidatos"),
         ]
         if args.run_external:
-            execution_plan.append((external_cmd, "ETL Externo via Top 10"))
+            execution_plan.append((external_cmd, "ETL Externo via Candidatos"))
 
         if args.dry_run:
             summary["ok"] = True
@@ -498,8 +485,8 @@ def main() -> None:
                 else:
                     summary["steps"].append(runner(cmd, name))
 
-            if not output_top10.exists():
-                raise PipelineError(f"Arquivo Top 10 nao foi gerado: {output_top10}")
+            if not output_candidates.exists():
+                raise PipelineError(f"Arquivo de candidatos nao foi gerado: {output_candidates}")
 
             summary["ok"] = True
 
@@ -512,7 +499,7 @@ def main() -> None:
     else:
         if summary["ok"]:
             print("\nPipeline unificado concluido com sucesso.")
-            print(f"Top 10: {summary['artifacts'].get('top10_output')}")
+            print(f"Candidatos: {summary['artifacts'].get('candidates_output')}")
         else:
             print("\nPipeline unificado falhou.")
             if summary["error"]:

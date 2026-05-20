@@ -1,0 +1,8 @@
+{
+  "input_path": "c:\\Users\\e_vi1065199\\Documents\\QuimioAnalytics\\data\\staging\\biological_ranking_candidates.parquet",
+  "output_csv": "c:\\Users\\e_vi1065199\\Documents\\QuimioAnalytics\\data\\staging\\s2_dia5_amostra_100_features.csv",
+  "selected_feature_groups": 100,
+  "selected_rows": 1531,
+  "selected_with_tie": 50,
+  "selected_without_tie": 50
+}

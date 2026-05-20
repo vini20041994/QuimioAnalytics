@@ -38,7 +38,7 @@ Um dashboard React-Vite para análise interativa de dados metabolômicos. Possui
 Uma plataforma Python com:
 - **Pipeline ETL** completo (spreadsheets → PostgreSQL)
 - **Banco PostgreSQL** com schema 3-camadas (staging, core, reference)
-- **Algoritmos de Ranking** probabilístico (Top 10 candidatos)
+- **Algoritmos de Ranking** probabilístico (ranking de candidatos candidatos)
 - **Integração com bases públicas** (PubChem, ChEBI, ChemSpider, HMDB, FooDB, LOTUS, ClassyFire)
 
 ### Desafio Atual
@@ -72,7 +72,7 @@ Backend (Flask/FastAPI)
 PostgreSQL
    ↓ Carrega em stg.* (staging)
    ↓ Transforma → core.*
-   ↓ Calcula Top 10
+   ↓ Calcula ranking de candidatos
 Status returned to frontend (batch_id, status, rows)
 ```
 

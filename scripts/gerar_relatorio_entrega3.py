@@ -188,7 +188,7 @@ def _fmt_pct(value):
     return f"{value:.2f}%".replace(".", ",")
 
 
-def _compute_quality_metrics(df_raw, df_top10, df_ident=None, df_external_input=None, df_pubchem=None):
+def _compute_quality_metrics(df_raw, df_candidates, df_ident=None, df_external_input=None, df_pubchem=None):
     metrics = {}
 
     if df_raw is None or df_raw.empty:
@@ -215,16 +215,16 @@ def _compute_quality_metrics(df_raw, df_top10, df_ident=None, df_external_input=
         coerced = pd.to_numeric(df_raw[col], errors="coerce")
         invalid_numeric += int((df_raw[col].notna() & coerced.isna()).sum())
 
-    top10_rows = None
-    top10_feature_groups = None
-    top10_avg_candidates_per_group = None
-    top10_coverage_pct = None
-    if df_top10 is not None and not df_top10.empty:
-        top10_rows = int(len(df_top10))
-        if "feature_group" in df_top10.columns:
-            top10_feature_groups = int(df_top10["feature_group"].nunique())
-            if top10_feature_groups:
-                top10_avg_candidates_per_group = float(len(df_top10) / top10_feature_groups)
+    ranked_rows = None
+    ranked_feature_groups = None
+    ranked_avg_candidates_per_group = None
+    ranked_coverage_pct = None
+    if df_candidates is not None and not df_candidates.empty:
+        ranked_rows = int(len(df_candidates))
+        if "feature_group" in df_candidates.columns:
+            ranked_feature_groups = int(df_candidates["feature_group"].nunique())
+            if ranked_feature_groups:
+                ranked_avg_candidates_per_group = float(len(df_candidates) / ranked_feature_groups)
 
     total_feature_groups = None
     if df_ident is not None and not df_ident.empty and {"compound_code", "adducts"}.issubset(df_ident.columns):
@@ -234,8 +234,8 @@ def _compute_quality_metrics(df_raw, df_top10, df_ident=None, df_external_input=
             + df_ident["adducts"].fillna("").astype(str).str.strip()
         )
         total_feature_groups = int(feature_group.nunique())
-        if total_feature_groups and top10_feature_groups is not None:
-            top10_coverage_pct = top10_feature_groups / total_feature_groups * 100.0
+        if total_feature_groups and ranked_feature_groups is not None:
+            ranked_coverage_pct = ranked_feature_groups / total_feature_groups * 100.0
 
     pubchem_rows = None
     pubchem_hits = None
@@ -265,11 +265,11 @@ def _compute_quality_metrics(df_raw, df_top10, df_ident=None, df_external_input=
         "dup_count": dup_count,
         "dup_pct": dup_pct,
         "invalid_numeric": invalid_numeric,
-        "top10_rows": top10_rows,
-        "top10_feature_groups": top10_feature_groups,
-        "top10_avg_candidates_per_group": top10_avg_candidates_per_group,
-        "top10_total_feature_groups": total_feature_groups,
-        "top10_coverage_pct": top10_coverage_pct,
+        "ranked_rows": ranked_rows,
+        "ranked_feature_groups": ranked_feature_groups,
+        "ranked_avg_candidates_per_group": ranked_avg_candidates_per_group,
+        "ranked_total_feature_groups": total_feature_groups,
+        "ranked_coverage_pct": ranked_coverage_pct,
         "pubchem_rows": pubchem_rows,
         "pubchem_hits": pubchem_hits,
         "pubchem_enriched_pct": pubchem_enriched_pct,
@@ -280,7 +280,7 @@ def _compute_quality_metrics(df_raw, df_top10, df_ident=None, df_external_input=
     return metrics
 
 
-def _generate_eda_assets(df_raw, df_top10):
+def _generate_eda_assets(df_raw, df_candidates):
     assets = []
     assets_dir = PROJECT_ROOT / "docs" / "report_assets"
     assets_dir.mkdir(parents=True, exist_ok=True)
@@ -342,13 +342,13 @@ def _generate_eda_assets(df_raw, df_top10):
             assets.append(("Distribuição do mass_error_ppm", path))
 
     # 4) Histograma de score_final
-    if df_top10 is not None and "score_final" in df_top10.columns:
-        sfinal = pd.to_numeric(df_top10["score_final"], errors="coerce").dropna()
+    if df_candidates is not None and "score_final" in df_candidates.columns:
+        sfinal = pd.to_numeric(df_candidates["score_final"], errors="coerce").dropna()
         if not sfinal.empty:
             path = assets_dir / "eda_hist_score_final.png"
             fig, ax = plt.subplots(figsize=(8, 4))
             ax.hist(sfinal, bins=20, color="#5b9bd5", edgecolor="white")
-            ax.set_title("Distribuição do Score Final (Top 10)")
+            ax.set_title("Distribuição do Score Final (Candidatos Ranqueados)")
             ax.set_xlabel("score_final")
             ax.set_ylabel("Frequência")
             fig.tight_layout()
@@ -383,27 +383,27 @@ def _generate_eda_assets(df_raw, df_top10):
 
 def _collect_report_inputs():
     raw_path = PROJECT_ROOT / "data" / "raw_inputs" / "merge_resultado.csv"
-    top10_path = PROJECT_ROOT / "data" / "staging" / "top10_candidates.parquet"
+    candidates_path = PROJECT_ROOT / "data" / "staging" / "top_candidates.parquet"
     ident_path = PROJECT_ROOT / "data" / "staging" / "identificacao_trusted.parquet"
-    external_input_path = PROJECT_ROOT / "data" / "staging" / "top10_external_input.csv"
+    external_input_path = PROJECT_ROOT / "data" / "staging" / "candidates_external_input.csv"
     pubchem_path = PROJECT_ROOT / "data" / "staging" / "pubchem_raw.csv"
 
     df_raw = _safe_read_csv(raw_path)
-    df_top10 = _safe_read_parquet(top10_path)
+    df_candidates = _safe_read_parquet(candidates_path)
     df_ident = _safe_read_parquet(ident_path)
     df_external_input = _safe_read_csv(external_input_path)
     df_pubchem = _safe_read_csv(pubchem_path)
-    metrics = _compute_quality_metrics(df_raw, df_top10, df_ident, df_external_input, df_pubchem)
-    assets = _generate_eda_assets(df_raw, df_top10)
+    metrics = _compute_quality_metrics(df_raw, df_candidates, df_ident, df_external_input, df_pubchem)
+    assets = _generate_eda_assets(df_raw, df_candidates)
 
-    sample_output = "Arquivo data/staging/top10_candidates.parquet não encontrado."
-    if df_top10 is not None and not df_top10.empty:
-        sample_cols = [c for c in ["Compound", "Adducts", "score_final", "probabilidade", "rank"] if c in df_top10.columns]
-        sample_output = df_top10[sample_cols].head(5).to_string(index=False) if sample_cols else df_top10.head(5).to_string(index=False)
+    sample_output = "Arquivo data/staging/top_candidates.parquet não encontrado."
+    if df_candidates is not None and not df_candidates.empty:
+        sample_cols = [c for c in ["Compound", "Adducts", "score_final", "probabilidade", "rank"] if c in df_candidates.columns]
+        sample_output = df_candidates[sample_cols].head(5).to_string(index=False) if sample_cols else df_candidates.head(5).to_string(index=False)
 
     return {
         "raw_path": raw_path,
-        "top10_path": top10_path,
+        "candidates_path": candidates_path,
         "ident_path": ident_path,
         "external_input_path": external_input_path,
         "pubchem_path": pubchem_path,
@@ -654,8 +654,8 @@ def build_content():
         ["6",  "Fator de abundância",                      "abundance_factor = log1p(media_abundancia) × 1/(1 + cv)"],
         ["7",  "Score final",                              "score_final = score_base × (0.5 + 0.5 × score_software) × abundance_factor"],
         ["8",  "Softmax por grupo",                        "Probabilidade por feature_group = Compound || Adducts."],
-        ["9",  "Top 10 por grupo",                          "Ordenação por probabilidade e seleção dos 5 primeiros por grupo."],
-        ["10", "Exportação",                               "Salvamento em data/staging/top10_candidates.parquet."],
+        ["9",  "Ranking por grupo",                         "Ordenação por probabilidade e seleção dos 5 primeiros por grupo."],
+        ["10", "Exportação",                                "Salvamento em data/staging/top_candidates.parquet."],
     ]
     tp = Table(passos, colWidths=[1.4 * cm, 4.6 * cm, 11 * cm])
     tp.setStyle(TableStyle([
@@ -807,7 +807,7 @@ def build_content():
                     "refletindo a integração ponderada entre componentes espectrais (massa, fragmentação, isótopos) e fatores "
                     "biológicos (abundância, consistência de réplicas). O pico em valores elevados indica que o conjunto de candidatos "
                     "representa identificações confiáveis, enquanto a cauda em valores baixos contém compostos com conflitos espectrais ou "
-                    "baixa abundância. Esse cenário é apropriado para uma seleção Top 10 de confiança moderada a alta por feature_group."
+                    "baixa abundância. Esse cenário é apropriado para uma seleção de candidatos com confiança moderada a alta por feature_group."
                 ))
             elif "heatmap" in str(image_path) or "correlação" in str(image_path):
                 elems.append(p(
@@ -841,11 +841,11 @@ def build_content():
             ["Valores inválidos convertidos (numéricos)", _fmt_int(metrics.get("invalid_numeric"))],
             ["Desvios analíticos em |mass_error_ppm| > 3", _fmt_int(metrics.get("outlier_count"))],
             ["Desvios críticos em |mass_error_ppm| > 5", _fmt_int(metrics.get("critical_outlier_count"))],
-            ["Candidatos no arquivo Top 10", _fmt_int(metrics.get("top10_rows"))],
-            ["Cobertura do Top 10 por feature_group", f"{_fmt_int(metrics.get('top10_feature_groups'))} / {_fmt_int(metrics.get('top10_total_feature_groups'))} ({_fmt_pct(metrics.get('top10_coverage_pct'))})"],
-            ["Média de candidatos por feature_group no Top 10", "N/A" if metrics.get("top10_avg_candidates_per_group") is None else f"{metrics.get('top10_avg_candidates_per_group'):.2f}".replace(".", ",")],
+            ["Candidatos no arquivo ranqueado", _fmt_int(metrics.get("ranked_rows"))],
+            ["Cobertura do ranking por feature_group", f"{_fmt_int(metrics.get('ranked_feature_groups'))} / {_fmt_int(metrics.get('ranked_total_feature_groups'))} ({_fmt_pct(metrics.get('ranked_coverage_pct'))})"],
+            ["Média de candidatos por feature_group", "N/A" if metrics.get("ranked_avg_candidates_per_group") is None else f"{metrics.get('ranked_avg_candidates_per_group'):.2f}".replace(".", ",")],
             ["Retornos válidos do PubChem", _fmt_int(metrics.get("pubchem_hits"))],
-            ["Cobertura do PubChem sobre top10_external_input", _fmt_pct(metrics.get("pubchem_enriched_pct"))],
+            ["Cobertura do PubChem sobre candidates_external_input", _fmt_pct(metrics.get("pubchem_enriched_pct"))],
         ]
     else:
         qualidade_tbl = [
@@ -916,7 +916,7 @@ def build_content():
     evidencias = [
         ["Evidência", "Status"],
         [str(report_inputs["raw_path"]), "Encontrado" if report_inputs["raw_path"].exists() else "Não encontrado"],
-        [str(report_inputs["top10_path"]), "Encontrado" if report_inputs["top10_path"].exists() else "Não encontrado"],
+        [str(report_inputs["candidates_path"]), "Encontrado" if report_inputs["candidates_path"].exists() else "Não encontrado"],
         ["scripts/features/analytics.py", "Script de cálculo ativo"],
         ["scripts/run/run_pipeline_frontend.py", "Orquestrador de execução"],
     ]
@@ -932,7 +932,7 @@ def build_content():
     ]))
     elems.append(tev)
     elems.append(Spacer(1, 0.2 * cm))
-    elems.append(subsecao("Amostra de saída do ranking (Top 10)"))
+    elems.append(subsecao("Amostra de saída do ranking de candidatos"))
     elems.append(pre(report_inputs["sample_output"]))
 
     # ── 12. Estrutura de Arquivos ──
@@ -942,7 +942,7 @@ def build_content():
         ["data/staging/identificacao_trusted.parquet",  "Dados de identificação limpos e renomeados"],
         ["data/staging/abundancia_trusted.parquet",     "Dados de abundância limpos e renomeados"],
         ["data/staging/compostos_trusted.parquet",      "Dados de compostos limpos e renomeados"],
-        ["data/staging/top10_candidates.parquet",        "Top 10 candidatos com todas as features engineered"],
+        ["data/staging/top_candidates.parquet",          "Candidatos ranqueados com todas as features engineered"],
         ["data/staging/pubchem_raw.csv",                "Dados brutos extraídos do PubChem"],
         ["data/staging/chebi_raw.csv",                  "Dados brutos extraídos do ChEBI"],
     ]
@@ -981,7 +981,7 @@ def build_content():
     F --> H["🔢 Score Base<br/>+ Software<br/>+ Abundância"]
     G --> H
     H --> I["🌐 Softmax<br/>por Feature_Group<br/>(Probabilidades)"]
-    I --> J["🏆 Ranking<br/>Top 10"]
+    I --> J["🏆 Ranking<br/>Candidatos"]
     J --> K["💾 Dataset Final<br/>(Parquet)"]
     K --> L["🔗 Enriquecimento<br/>Externo<br/>(PubChem/ChEBI/<br/>ChemSpider)"]
     L --> M["✅ Banco de Dados<br/>PostgreSQL"]
@@ -1008,7 +1008,7 @@ def build_content():
                     "5. Componente software (normalizado)\n" +
                     "6. Score final = base × (0.5 + 0.5×software) × abundância\n" +
                     "7. Softmax por feature_group\n" +
-                    "8. Ranking Top 10 com probabilidades\n" +
+                    "8. Ranking de candidatos com probabilidades\n" +
                     "9. Enriquecimento (PubChem, ChEBI, ClassyFire)\n" +
                     "10. Carga PostgreSQL",
                     ha="center", va="center", fontsize=11, family="monospace",
@@ -1071,7 +1071,7 @@ def build_content():
         "consistência entre réplicas)."
     ))
     elems.append(p(
-        "O dataset final (<i>top10_candidates.parquet</i>) contém os 5 candidatos "
+        "O dataset final (<i>top_candidates.parquet</i>) contém os 5 candidatos "
         "moleculares mais prováveis para cada feature cromatográfica, com probabilidades "
         "calculadas por grupo (feature + aduto) via softmax, fornecendo tanto a estrutura necessária para "
         "modelagem supervisionada quanto para análise exploratória."
