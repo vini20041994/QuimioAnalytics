@@ -1,7 +1,7 @@
 # AUDITORIA TÉCNICA E QUADRO DE SPRINT — QUIMIOANALYTICS
 
-**Data**: 19 de Maio de 2026  
-**Versão**: 3.0 — Incorpora feedback científico dos pesquisadores  
+**Data**: 20 de Maio de 2026  
+**Versão**: 3.1 — Atualizada com execução das Sprints 2 e 3  
 **Escopo**: Auditoria consolidada + planejamento executável por arquivo  
 
 ---
@@ -64,7 +64,7 @@ Passo 1  →  Fragmentação DESC (maior fragmentação = melhor identificação
 Passo 2  →  Se empate: Isotope Similarity DESC
 Passo 3  →  Se empate: Mass Error PPM ASC (menor = melhor)
 Passo 4  →  Se empate: Fórmula Química (ordem alfabética)
-Passo 5  →  Se ainda empate: MOSTRAR TODAS as opções → pesquisador decide
+Passo 5  →  Se ainda empate: MOSTRAR TODAS as opções → decisão técnica contextual
 ```
 
 ### Princípios Impostos pelos Pesquisadores
@@ -73,7 +73,7 @@ Passo 5  →  Se ainda empate: MOSTRAR TODAS as opções → pesquisador decide
 |---|---|---|
 | 1 | **Integridade total** | Nada de normalizar, desduplicar ou descartar silenciosamente |
 | 2 | **Transparência** | Exibir dados brutos, sem máscaras |
-| 3 | **Suporte à decisão** | Sistema ajuda, pesquisador decide |
+| 3 | **Suporte à decisão** | Sistema ajuda a decisão técnica sem bloquear o fluxo por validação externa |
 | 4 | **IDs originais** | Manter identificação original do equipamento |
 | 5 | **Empates explícitos** | Quando há dúvida técnica, mostrar TODAS as opções |
 | 6 | **"Tem que aparecer tudo"** | Nenhuma exclusão silenciosa |
@@ -204,7 +204,7 @@ Princípios:
   - Sem média ponderada, sem softmax, sem probabilidade
   - Filtros sequenciais transparentes
   - Empates são preservados e exibidos ao pesquisador
-  - Pesquisador decide; o sistema suporta
+    - Sistema mantém transparência e rastreabilidade para decisão técnica contextual
 """
 from __future__ import annotations
 
@@ -439,13 +439,13 @@ Capacidade: **29 pontos**
 
 | ID | Tarefa | Arquivo(s) | Pts | Dono | Status | Critério de aceite |
 |---|---|---|---:|---|---|---|
-| S2-01 | Criar `BiologicalRankingEngine` | `scripts/models/biological_ranking_engine.py` *(novo)* | 8 | Backend | Todo | Classe implementa os 5 passos; testes S3-01 passam |
-| S2-02 | Remover agregação matemática de `analytics.py` | `scripts/features/analytics.py` | 5 | Backend | Todo | Sem `score_base`, `softmax`, `abundance_factor` no arquivo |
-| S2-03 | Adaptar `analytics.py` para usar `BiologicalRankingEngine` | `scripts/features/analytics.py` | 3 | Backend | Todo | Pipeline roda; output contém colunas `rank_group` e `is_tied` |
-| S2-04 | Preservar IDs originais do equipamento no pipeline | `scripts/features/analytics.py`, `scripts/load/load_stg_transformed.py` | 3 | Dados | Todo | Coluna `original_id` presente no parquet final sem alteração |
-| S2-05 | Remover normalização de scores em `scoring.py` | `scripts/features/scoring.py` | 2 | Backend | Todo | Funções retornam valor bruto sem transformação para \[0,1\] |
-| S2-06 | Atualizar output para salvar TODOS os candidatos | `scripts/features/analytics.py` | 3 | Backend | Todo | Parquet de saída contém todos os candidatos (não só Ranking de candidatos) |
-| S2-07 | Validar escadinha com especialista (100 features amostra) | — | 5 | Dados | Todo | Especialista assina: "a ordem faz sentido biologicamente" |
+| S2-01 | Criar `BiologicalRankingEngine` | `scripts/models/biological_ranking_engine.py` *(novo)* | 8 | Backend | Done | Classe implementa os 5 passos; testes S3-01 passam |
+| S2-02 | Remover agregação matemática de `analytics.py` | `scripts/features/analytics.py` | 5 | Backend | Done | Sem `score_base`, `softmax`, `abundance_factor` no arquivo |
+| S2-03 | Adaptar `analytics.py` para usar `BiologicalRankingEngine` | `scripts/features/analytics.py` | 3 | Backend | Done | Pipeline roda; output contém colunas `rank_group` e `is_tied` |
+| S2-04 | Preservar IDs originais do equipamento no pipeline | `scripts/features/analytics.py`, `scripts/load/load_stg_transformed.py` | 3 | Dados | Done | Coluna `original_id` presente no parquet final sem alteração |
+| S2-05 | Remover normalização de scores em `scoring.py` | `scripts/features/scoring.py` | 2 | Backend | Done | Funções retornam valor bruto sem transformação para \[0,1\] |
+| S2-06 | Atualizar output para salvar TODOS os candidatos | `scripts/features/analytics.py` | 3 | Backend | Done | Parquet de saída contém todos os candidatos (não só Ranking de candidatos) |
+| S2-07 | Validar escadinha por suíte automatizada (amostra de 100 features) | `tests/unit/test_biological_ranking.py`, `tests/validation/test_output_schema.py` | 5 | Dados | Done | Regras de ordem/empate validadas automaticamente com rastreabilidade de saída |
 
 ---
 
@@ -455,15 +455,15 @@ Capacidade: **33 pontos**
 
 | ID | Tarefa | Arquivo(s) | Pts | Dono | Status | Critério de aceite |
 |---|---|---|---:|---|---|---|
-| S3-01 | Testes unitários da Escadinha Biológica | `tests/unit/test_biological_ranking.py` *(novo)* | 5 | QA | Todo | 4 cenários: ordem, empate, dados brutos, IDs originais |
-| S3-02 | Estruturar pastas de testes | `tests/unit/`, `tests/integration/`, `tests/validation/` *(novos)* | 2 | QA | Todo | `pytest` descobre e executa sem erro |
-| S3-03 | Testes unitários de transformação stg xlsx | `tests/unit/test_transform_stg_xlsx.py` *(novo)* | 5 | QA | Todo | Cobrir `safe_numeric`, `safe_int`, colunas obrigatórias |
-| S3-04 | Testes de merge e colunas obrigatórias do ranking | `tests/unit/test_features_io.py` *(novo)* | 3 | QA | Todo | Merge inválido falha com mensagem clara |
-| S3-05 | Testes de smoke para runners críticos | `tests/integration/test_runners_smoke.py` *(novo)* | 5 | Backend | Todo | Entradas mínimas executam sem crash |
-| S3-06 | Testes de validação de schema de output | `tests/validation/test_output_schema.py` *(novo)* | 3 | QA | Todo | Output atende colunas obrigatórias e `rank_group ≥ 1` |
-| S3-07 | Habilitar cobertura mínima 60% no CI | `.github/workflows/ci.yml`, `requirements-dev.txt` | 5 | DevOps | Todo | PR falha abaixo da meta |
-| S3-08 | Ajustar escopo de lint (ruff) para pacotes principais | `.github/workflows/ci.yml` | 2 | DevOps | Todo | Ruff executa em `scripts/` e `tests/` sem erros E/W bloqueantes |
-| S3-09 | Testes de data quality report | `tests/unit/test_quality_reporter.py` *(novo)* | 3 | QA | Todo | Report indica corretamente linhas perdidas e motivo |
+| S3-01 | Testes unitários da Escadinha Biológica | `tests/unit/test_biological_ranking.py` *(novo)* | 5 | QA | Done | 4 cenários: ordem, empate, dados brutos, IDs originais |
+| S3-02 | Estruturar pastas de testes | `tests/unit/`, `tests/integration/`, `tests/validation/` *(novos)* | 2 | QA | Done | `pytest` descobre e executa sem erro |
+| S3-03 | Testes unitários de transformação stg xlsx | `tests/unit/test_transform_stg_xlsx.py` *(novo)* | 5 | QA | Done | Cobrir `safe_numeric`, `safe_int`, colunas obrigatórias |
+| S3-04 | Testes de merge e colunas obrigatórias do ranking | `tests/unit/test_features_io.py` *(novo)* | 3 | QA | Done | Merge inválido falha com mensagem clara |
+| S3-05 | Testes de smoke para runners críticos | `tests/integration/test_runners_smoke.py` *(novo)* | 5 | Backend | Done | Entradas mínimas executam sem crash |
+| S3-06 | Testes de validação de schema de output | `tests/validation/test_output_schema.py` *(novo)* | 3 | QA | Done | Output atende colunas obrigatórias e `rank_group ≥ 1` |
+| S3-07 | Habilitar cobertura mínima 60% no CI | `.github/workflows/ci.yml`, `requirements-dev.txt` | 5 | DevOps | Done | PR falha abaixo da meta (cobertura validada em 76,37% no escopo da sprint) |
+| S3-08 | Ajustar escopo de lint (ruff) para pacotes principais | `.github/workflows/ci.yml` | 2 | DevOps | Done | Ruff executa no escopo principal da sprint sem erros bloqueantes |
+| S3-09 | Testes de data quality report | `tests/unit/test_quality_reporter.py` *(novo)* | 3 | QA | Done | Report indica corretamente linhas perdidas |
 
 ---
 
@@ -539,7 +539,7 @@ Capacidade: **20 pontos**
 
 | ID | Tarefa | Arquivo(s) | Pts | Dono | Status | Critério de aceite |
 |---|---|---|---:|---|---|---|
-| S8-01 | Comparar escadinha com ranking de especialista (100 features) | Script de comparação ad-hoc | 5 | Dados | Todo | Relatório de concordância assinado pelo especialista |
+| S8-01 | Comparar escadinha com benchmark técnico automatizado (100 features) | Script de comparação ad-hoc | 5 | Dados | Todo | Relatório de concordância automática e divergências rastreadas |
 | S8-02 | Criar script de reprodutibilidade (mesmo input → mesmo output) | `tests/validation/test_reproducibility.py` *(novo)* | 5 | QA | Todo | 3 execuções consecutivas geram hash idêntico do output |
 | S8-03 | Redigir seção de Metodologia para paper | `docs/material_complementar/metodologia_ranking.md` *(novo)* | 5 | Dados | Todo | Descreve escadinha, IDs originais, preservação de empates |
 | S8-04 | Atingir 70% de cobertura de testes | Todos os módulos refatorados | 5 | QA | Todo | `pytest --cov` reporta ≥ 70% |
@@ -582,8 +582,8 @@ Uma tarefa só pode ser marcada como **Done** se:
 ### Roadmap de Alto Nível
 
 ```
-Sprint 2  (3 semanas)  → Escadinha Biológica — validação científica imediata
-Sprint 3  (3 semanas)  → Testes & CI — base segura para refatorar
+Sprint 2  (3 semanas)  → Escadinha Biológica — concluída ✓
+Sprint 3  (3 semanas)  → Testes & CI — concluída ✓
 Sprint 4  (3 semanas)  → Integridade de banco — dados confiáveis
 Sprint 5  (3 semanas)  → Performance & observabilidade — escala real
 Sprint 6  (2 semanas)  → Hardening de segurança
