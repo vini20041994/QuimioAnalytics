@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from scripts.config import PROJECT_ROOT, RAW_INPUTS_DIR, STAGING_DIR
+from scripts.config import RAW_INPUTS_DIR, STAGING_DIR
 from scripts.models.biological_ranking_engine import BiologicalRankingEngine
 from .database_candidates import load_candidates_to_core
 from .io import load_and_merge_planilhas

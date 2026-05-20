@@ -216,15 +216,22 @@ def _compute_quality_metrics(df_raw, df_candidates, df_ident=None, df_external_i
         invalid_numeric += int((df_raw[col].notna() & coerced.isna()).sum())
 
     ranked_rows = None
+    rows_lost = None
+    rows_lost_pct = None
     ranked_feature_groups = None
     ranked_avg_candidates_per_group = None
     ranked_coverage_pct = None
     if df_candidates is not None and not df_candidates.empty:
         ranked_rows = int(len(df_candidates))
+        rows_lost = max(total_rows - ranked_rows, 0)
+        rows_lost_pct = (rows_lost / total_rows * 100.0) if total_rows else None
         if "feature_group" in df_candidates.columns:
             ranked_feature_groups = int(df_candidates["feature_group"].nunique())
             if ranked_feature_groups:
                 ranked_avg_candidates_per_group = float(len(df_candidates) / ranked_feature_groups)
+    elif total_rows is not None:
+        rows_lost = total_rows
+        rows_lost_pct = 100.0 if total_rows else None
 
     total_feature_groups = None
     if df_ident is not None and not df_ident.empty and {"compound_code", "adducts"}.issubset(df_ident.columns):
@@ -266,6 +273,8 @@ def _compute_quality_metrics(df_raw, df_candidates, df_ident=None, df_external_i
         "dup_pct": dup_pct,
         "invalid_numeric": invalid_numeric,
         "ranked_rows": ranked_rows,
+        "rows_lost": rows_lost,
+        "rows_lost_pct": rows_lost_pct,
         "ranked_feature_groups": ranked_feature_groups,
         "ranked_avg_candidates_per_group": ranked_avg_candidates_per_group,
         "ranked_total_feature_groups": total_feature_groups,
@@ -784,7 +793,7 @@ def build_content():
                     "padrão log-normal, com a maioria dos compostos concentrada em abundâncias baixas a moderadas. Isso é esperado "
                     "em metabolômica, onde poucos metabólitos apresentam elevada concentração, enquanto a maioria está presente em "
                     "quantidades traço. Candidatos com abundância muito reduzida podem indicar compostos de interesse biológico raramente "
-                    "detectados, merecendo atenção especial durante a validação manual."
+                    "detectados, merecendo atenção especial no monitoramento automático de qualidade."
                 ))
             elif "replicatas" in str(image_path):
                 elems.append(p(
@@ -798,7 +807,7 @@ def build_content():
                     "<b>Interpretação:</b> A distribuição de mass_error_ppm concentra-se predominantemente abaixo de ±3 ppm, "
                     "indicando excelente qualidade analítica e calibração apropriada do espectrômetro de massas. "
                     "Candidatos fora dessa faixa (outliers em ±5 ppm ou além) recebem penalização no score de massa e devem ser "
-                    "verificados manualmente. A presença de alguns desvios maiores é normal em análises complexas e não invalida "
+                    "avaliados automaticamente. A presença de alguns desvios maiores é normal em análises complexas e não invalida "
                     "necessariamente a identificação, mas requer interpretação contextualizada com outros fatores espectrais."
                 ))
             elif "score_final" in str(image_path):

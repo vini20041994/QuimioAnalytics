@@ -3,7 +3,7 @@ import pandas as pd
 from pathlib import Path
 from decimal import Decimal, InvalidOperation
 
-from external_transform_utils import normalize_dataframe
+from scripts.transform.external_transform_utils import normalize_dataframe
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 STAGING_DIR = PROJECT_ROOT / "data" / "staging"
@@ -75,7 +75,14 @@ COL_MAP_COMPOSTOS = {
 }
 
 
-def transform(nome_arquivo, col_map, numeric_cols=None, int_cols=None):
+def validate_required_columns(df, required_cols):
+    """Valida se todas as colunas obrigatórias existem no DataFrame."""
+    missing = [col for col in required_cols if col not in df.columns]
+    if missing:
+        raise ValueError(f"Colunas obrigatórias ausentes após transformação: {missing}")
+
+
+def transform(nome_arquivo, col_map, numeric_cols=None, int_cols=None, required_cols=None):
     """Transforma e limpa os dados"""
     df = pd.read_parquet(STAGING_DIR / nome_arquivo)
 
@@ -93,6 +100,9 @@ def transform(nome_arquivo, col_map, numeric_cols=None, int_cols=None):
         for col in int_cols:
             if col in df.columns:
                 df[col] = df[col].apply(safe_int)
+
+    if required_cols:
+        validate_required_columns(df, required_cols)
 
     # Normalizar NaN para None
     return normalize_dataframe(df)

@@ -25,7 +25,7 @@ class BiologicalRankingEngine:
     2) isotope_similarity DESC
     3) mass_error_ppm ASC (absolute value)
     4) formula ASC
-    5) full ties must be preserved for researcher decision
+    5) full ties are preserved for deterministic downstream processing
     """
 
     def __init__(self, columns: RankingColumns | None = None) -> None:
