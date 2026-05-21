@@ -8,7 +8,7 @@ STAGING_DIR = PROJECT_ROOT / "data" / "staging"
 
 
 def transform_classyfire(df):
-    df["source_name"] = "Classyfire"
+    df["source_name"] = "ClassyFire"
     return normalize_dataframe(df)
 
 
@@ -18,7 +18,7 @@ def main():
     df = transform_classyfire(df)
     trusted_path = STAGING_DIR / "classyfire_trusted.parquet"
     df.to_parquet(trusted_path)
-    print(f"Transformed {len(df)} Classyfire rows -> {trusted_path}")
+    print(f"Transformed {len(df)} ClassyFire rows -> {trusted_path}")
 
 
 if __name__ == "__main__":

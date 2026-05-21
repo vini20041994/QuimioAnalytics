@@ -22,7 +22,7 @@ from scripts.load.external_load_utils import (
     write_import_log,
 )
 
-_PUBCHEM_SOURCE_NAME = "PubChem_PUG_REST"
+_PUBCHEM_SOURCE_NAME = "PubChem"
 
 _NUMERIC_PROPERTIES = [
     ("molecular_weight", "Da"),

@@ -23,7 +23,7 @@ from scripts.load.external_load_utils import (
     write_import_log,
 )
 
-_CHEMSPIDER_SOURCE_NAME = "ChemSpider_API"
+_CHEMSPIDER_SOURCE_NAME = "ChemSpider"
 
 
 def get_or_create_batch(cur, batch_name):
@@ -229,18 +229,18 @@ def _upsert_chemspider_to_ref(cur, row, source_id):
     # Referências cruzadas para outras bases
     pubchem_cid = parse_int(row.get("pubchem_cid"))
     if pubchem_cid is not None:
-        write_compound_cross_reference(cur, ext_id, "PubChem_PUG_REST", str(pubchem_cid))
+        write_compound_cross_reference(cur, ext_id, "PubChem", str(pubchem_cid))
 
     chebi_ids = parse_json_field(row.get("chebi_ids")) or parse_json_field(row.get("ChEBI_IDs"))
     if isinstance(chebi_ids, list):
         for cid in chebi_ids:
             if cid:
-                write_compound_cross_reference(cur, ext_id, "ChEBI_OLS_API", str(cid))
+                write_compound_cross_reference(cur, ext_id, "ChEBI", str(cid))
 
     for col, src in [
         ("chembl_id", "ChEMBL"),
         ("drugbank_id", "DrugBank"),
-        ("hmdb_id", "HMDB_XML"),
+        ("hmdb_id", "HMDB"),
     ]:
         val = to_python(row.get(col))
         if val:

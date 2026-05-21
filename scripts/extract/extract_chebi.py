@@ -14,7 +14,7 @@ from datetime import datetime
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 STAGING_DIR = BASE_DIR / "data" / "staging"
 LOG_DIR = BASE_DIR / "runtime" / "logs"
-REQUEST_TIMEOUT = 20
+REQUEST_TIMEOUT = 30
 REQUEST_HEADERS = {
     "User-Agent": "QuimioAnalytics/1.0 (+https://www.ebi.ac.uk/chebi/)"
 }

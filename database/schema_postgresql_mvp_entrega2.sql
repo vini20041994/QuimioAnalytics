@@ -142,6 +142,8 @@ CREATE TABLE IF NOT EXISTS core.feature (
     present_in_identification     BOOLEAN NOT NULL DEFAULT FALSE,
     present_in_abundance          BOOLEAN NOT NULL DEFAULT FALSE,
     created_at                    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at                    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at                    TIMESTAMP,
     CONSTRAINT uq_feature UNIQUE (batch_id, feature_code)
 );
 
@@ -188,7 +190,9 @@ CREATE TABLE IF NOT EXISTS core.candidate_identification (
     score_final           NUMERIC(20,10),
     global_probability    NUMERIC(20,10),
     abundance_mean        NUMERIC(20,8),
-    abundance_cv          NUMERIC(12,6)
+    abundance_cv          NUMERIC(12,6),
+    updated_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at            TIMESTAMP
 );
 
 ALTER TABLE core.candidate_identification
@@ -323,6 +327,8 @@ CREATE INDEX IF NOT EXISTS idx_stg_abundance_compound_code ON stg.abundance_row 
 CREATE INDEX IF NOT EXISTS idx_core_feature_code ON core.feature (feature_code);
 CREATE INDEX IF NOT EXISTS idx_core_feature_batch ON core.feature (batch_id);
 CREATE INDEX IF NOT EXISTS idx_core_candidate_feature ON core.candidate_identification (feature_id);
+CREATE INDEX IF NOT EXISTS idx_candidate_by_feature_rank ON core.candidate_identification (feature_id, candidate_rank_local, is_tied);
+CREATE INDEX IF NOT EXISTS idx_feature_not_deleted ON core.feature (feature_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_core_measurement_feature ON core.abundance_measurement (feature_id);
 CREATE INDEX IF NOT EXISTS idx_core_measurement_replicate ON core.abundance_measurement (replicate_id);
 CREATE INDEX IF NOT EXISTS idx_ref_external_compound_accession ON ref.external_compound (external_accession);
@@ -337,24 +343,24 @@ CREATE INDEX IF NOT EXISTS idx_ref_match_external_compound ON ref.candidate_matc
 INSERT INTO ref.external_source (source_name, source_type, base_url, notes)
 VALUES
 
-('PubChem_PUG_REST',
+('PubChem',
  'api_quimica',
- 'https://pubchem.ncbi.nlm.nih.gov/rest/pug/',
+ 'https://pubchem.ncbi.nlm.nih.gov/',
  'API REST oficial para propriedades, CID, SMILES, InChIKey'),
 
-('HMDB_XML',
+('HMDB',
  'api_metabolitos',
- 'https://hmdb.ca/downloads',
+ 'https://hmdb.ca/',
  'Dump XML completo com metabolitos, biospecimen e pathways'),
 
-('ChEBI_OLS_API',
+('ChEBI',
  'api_ontologia',
- 'https://www.ebi.ac.uk/ols4/api/',
+ 'https://www.ebi.ac.uk/chebi/',
  'Ontology Lookup Service para hierarquia química'),
 
-('FooDB_CSV',
+('FooDB',
  'api_alimentos',
- 'https://foodb.ca/downloads',
+ 'https://foodb.ca/',
  'Dataset alimentar com origem biológica e compostos dietéticos'),
 
 ('KEGG_Pathway',
@@ -367,10 +373,20 @@ VALUES
  'https://smpdb.ca/',
  'Small Molecule Pathway Database para metabolômica'),
 
-('ChemSpider_API',
+('ChemSpider',
  'api_quimica',
- 'http://www.chemspider.com/',
- 'Cross-reference químico adicional baseado em InChIKey')
+ 'https://www.chemspider.com/',
+ 'Cross-reference químico adicional baseado em InChIKey'),
+
+('ClassyFire',
+ 'api_quimica',
+ 'https://classyfire.wishartlab.com/',
+ 'Classificação química hierárquica baseada em estrutura'),
+
+('User Input',
+ 'entrada_usuario',
+ NULL,
+ 'Entrada manual de compostos fornecida pelo usuario')
 
 ON CONFLICT (source_name) DO NOTHING;
 

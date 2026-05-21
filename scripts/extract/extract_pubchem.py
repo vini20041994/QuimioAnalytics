@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 PUBCHEM_API_BASE = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
 RATE_LIMIT_DELAY = 0.2  # 5 requisições por segundo (máximo da API)
 MAX_RETRIES = 3
-TIMEOUT = 15
+TIMEOUT = 30
 
 # Propriedades a extrair
 PROPERTIES = [
@@ -80,8 +80,8 @@ def check_connectivity() -> bool:
         logger.error("❌ Timeout ao conectar com PubChem")
         logger.error("   A API pode estar temporariamente indisponível")
         return False
-    except Exception as e:
-        logger.error(f"❌ Erro inesperado: {e}")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"❌ Erro de requisição: {e}")
         return False
 
 
@@ -100,7 +100,10 @@ def make_request(url: str, retries: int = MAX_RETRIES) -> Optional[dict]:
         except requests.exceptions.Timeout:
             logger.warning(f"Timeout - tentativa {attempt + 1}/{retries}")
             time.sleep(RATE_LIMIT_DELAY * (attempt + 1))
-        except Exception as e:
+        except json.JSONDecodeError as e:
+            logger.error(f"Erro ao decodificar JSON da resposta: {e}")
+            return None
+        except requests.exceptions.RequestException as e:
             logger.error(f"Erro na requisição: {e}")
             return None
     

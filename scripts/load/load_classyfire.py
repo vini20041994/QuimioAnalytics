@@ -28,14 +28,14 @@ def main():
 
     with psycopg2.connect(**db_params()) as conn:
         with conn.cursor() as cur:
-            source_id = get_source_id(cur, "Classyfire")
+            source_id = get_source_id(cur, "ClassyFire")
             if source_id is None:
-                raise RuntimeError("Ref source Classyfire not found in ref.external_source")
+                raise RuntimeError("Ref source ClassyFire not found in ref.external_source")
 
             total = load_classyfire(cur, df, source_id)
             conn.commit()
 
-    print(f"Inserted {total} Classyfire compounds")
+    print(f"Inserted {total} ClassyFire compounds")
 
 
 if __name__ == "__main__":

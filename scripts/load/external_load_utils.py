@@ -104,7 +104,7 @@ def write_external_identifier(
             identifier_value,
             is_primary
         ) VALUES (%s, %s, %s, %s)
-        ON CONFLICT DO NOTHING
+        ON CONFLICT (external_compound_id, identifier_type, identifier_value) DO NOTHING
         """,
         (external_compound_id, identifier_type, str(identifier_value), is_primary),
     )
@@ -122,27 +122,59 @@ def write_compound_property(
     """Insere uma propriedade em ref.compound_property (ignora duplicatas)."""
     if property_value_text is None and property_value_num is None:
         return
-    cur.execute(
-        """
-        INSERT INTO ref.compound_property (
-            external_compound_id,
-            property_name,
-            property_value_text,
-            property_value_num,
-            unit,
-            evidence_source
-        ) VALUES (%s, %s, %s, %s, %s, %s)
-        ON CONFLICT DO NOTHING
-        """,
-        (
-            external_compound_id,
-            property_name,
-            str(property_value_text) if property_value_text is not None else None,
-            float(property_value_num) if property_value_num is not None else None,
-            unit,
-            evidence_source,
-        ),
-    )
+
+    property_value_text = str(property_value_text) if property_value_text is not None else None
+    property_value_num = float(property_value_num) if property_value_num is not None else None
+
+    # Usa alvos de conflito distintos porque a tabela suporta propriedades textuais e numericas.
+    if property_value_num is None:
+        cur.execute(
+            """
+            INSERT INTO ref.compound_property (
+                external_compound_id,
+                property_name,
+                property_value_text,
+                property_value_num,
+                unit,
+                evidence_source
+            ) VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (external_compound_id, property_name, property_value_text, unit, evidence_source)
+            WHERE property_value_num IS NULL
+            DO NOTHING
+            """,
+            (
+                external_compound_id,
+                property_name,
+                property_value_text,
+                None,
+                unit,
+                evidence_source,
+            ),
+        )
+    else:
+        cur.execute(
+            """
+            INSERT INTO ref.compound_property (
+                external_compound_id,
+                property_name,
+                property_value_text,
+                property_value_num,
+                unit,
+                evidence_source
+            ) VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (external_compound_id, property_name, property_value_num, unit, evidence_source)
+            WHERE property_value_text IS NULL
+            DO NOTHING
+            """,
+            (
+                external_compound_id,
+                property_name,
+                None,
+                property_value_num,
+                unit,
+                evidence_source,
+            ),
+        )
 
 
 def write_compound_cross_reference(
@@ -163,7 +195,7 @@ def write_compound_cross_reference(
             accession,
             evidence_level
         ) VALUES (%s, %s, %s, %s)
-        ON CONFLICT DO NOTHING
+        ON CONFLICT (external_compound_id, source_name, accession) DO NOTHING
         """,
         (external_compound_id, source_name, str(accession), evidence_level),
     )

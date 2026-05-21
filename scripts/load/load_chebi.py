@@ -33,7 +33,7 @@ from scripts.load.external_load_utils import (
     write_biological_origin,
 )
 
-_CHEBI_SOURCE_NAME = "ChEBI_OLS_API"
+_CHEBI_SOURCE_NAME = "ChEBI"
 
 
 def get_or_create_batch(cur, batch_name):

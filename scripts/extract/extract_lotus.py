@@ -4,6 +4,11 @@ from pathlib import Path
 import sys
 import time
 import requests
+import logging
+
+REQUEST_TIMEOUT = 30
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 STAGING_DIR = BASE_DIR / "data" / "staging"
@@ -12,10 +17,8 @@ STAGING_DIR.mkdir(parents=True, exist_ok=True)
 
 def lotus_taxonomia(nome):
     url = f"https://lotus.naturalproducts.net/api/search/simple?query={nome}"
-    r = requests.get(url)
-    
-    if r.status_code != 200:
-        return {}
+    r = requests.get(url, timeout=REQUEST_TIMEOUT)
+    r.raise_for_status()
     
     dados = r.json()
     
@@ -40,8 +43,18 @@ def extract_lotus(compound_names):
                 data['compound_name'] = name
                 results.append(data)
             time.sleep(0.1)  # Rate limiting
-        except Exception as e:
-            print(f"Error extracting LOTUS data for {name}: {e}")
+        except requests.Timeout:
+            logger.error(f"Timeout extracting LOTUS data for {name}", exc_info=True)
+            continue
+        except requests.HTTPError as e:
+            status_code = e.response.status_code if e.response is not None else "unknown"
+            logger.error(f"HTTP {status_code} extracting LOTUS data for {name}", exc_info=True)
+            continue
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON from LOTUS for {name}: {e}", exc_info=True)
+            continue
+        except requests.RequestException as e:
+            logger.error(f"Request error extracting LOTUS data for {name}: {e}", exc_info=True)
             continue
 
     df = pd.DataFrame(results)
