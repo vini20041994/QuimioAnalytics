@@ -1,7 +1,7 @@
 # AUDITORIA TÉCNICA E QUADRO DE SPRINT — QUIMIOANALYTICS
 
-**Data**: 20 de Maio de 2026  
-**Versão**: 3.1 — Atualizada com execução das Sprints 2 e 3  
+**Data**: 22 de Maio de 2026  
+**Versão**: 3.3 — Atualizada com conclusão da Sprint 4  
 **Escopo**: Auditoria consolidada + planejamento executável por arquivo  
 
 ---
@@ -471,18 +471,20 @@ Capacidade: **33 pontos**
 Objetivo: garantir consistência de chaves, deduplicação real e padronização de fontes externas.  
 Capacidade: **28 pontos**
 
+**Status consolidado (22/05/2026)**: 28 pts **Done**.
+
 | ID | Tarefa | Arquivo(s) | Pts | Dono | Status | Critério de aceite |
 |---|---|---|---:|---|---|---|
-| S4-01 | Padronizar `source_name` entre seed SQL e loaders legados | `database/schema_postgresql_mvp_entrega2.sql`, `scripts/load/load_foodb.py`, `load_hmdb.py`, `load_lotus.py`, `load_classyfire.py` | 5 | Dados | Todo | `get_source_id` encontra fontes sem fallback manual |
-| S4-02 | Criar constraints únicas para `external_identifier` | `database/migrations/010_add_unique_constraints_ref.sql` *(novo)* | 3 | Dados | Todo | ON CONFLICT DO NOTHING deduplica por chave natural |
-| S4-03 | Criar constraints únicas para `compound_property` | `database/migrations/010_add_unique_constraints_ref.sql` | 3 | Dados | Todo | Reprocessamento não gera duplicatas |
-| S4-04 | Criar constraints únicas para `compound_cross_reference` | `database/migrations/010_add_unique_constraints_ref.sql` | 3 | Dados | Todo | Idempotência confirmada |
-| S4-05 | Revisar e alinhar ON CONFLICT com novas constraints | `scripts/load/external_load_utils.py` | 3 | Backend | Todo | ON CONFLICT referencia alvo válido |
-| S4-06 | Normalizar tratamento de erros nos extratores legados | `scripts/extract/extract_foodb.py`, `extract_hmdb.py`, `extract_classyfire.py`, `extract_lotus.py` | 3 | Backend | Todo | Capturas específicas para `requests`/parsing; sem `Exception` genérica |
-| S4-07 | Adicionar timeout explícito em todos os requests HTTP | `scripts/extract/extract_foodb.py`, `extract_hmdb.py`, `extract_classyfire.py`, `extract_lotus.py` | 2 | Backend | Todo | Toda chamada HTTP tem `timeout=` explícito |
-| S4-08 | Rodar validação de migrations em banco limpo e inicializado | `scripts/run/run_pipeline_frontend.py`, `scripts/manage_db.py` | 2 | DevOps | Todo | Evidência de sucesso nos dois cenários |
-| S4-09 | Criar índice de candidatos para query de ranking | `database/schema_postgresql_mvp_entrega2.sql` | 3 | Dados | Todo | `EXPLAIN ANALYZE` para Ranking de candidatos mostra Index Scan |
-| S4-10 | Adicionar soft-delete e `updated_at` em tabelas CORE | `database/schema_postgresql_mvp_entrega2.sql` | 1 | Dados | Todo | Colunas `deleted_at`, `updated_at` existem em `core.feature` e `core.candidate_identification` |
+| S4-01 | Padronizar `source_name` entre seed SQL e loaders legados | `database/schema_postgresql_mvp_entrega2.sql`, `scripts/load/load_foodb.py`, `scripts/load/load_hmdb.py`, `scripts/load/load_lotus.py`, `scripts/load/load_classyfire.py`, `scripts/load/load_pubchem.py`, `scripts/load/load_chebi.py`, `scripts/load/load_chemspider.py`, `scripts/transform/transform_classyfire.py` | 5 | Dados | Done | `get_source_id` usa nomes padronizados sem fallback manual |
+| S4-02 | Criar constraints únicas para `external_identifier` | `database/migrations/010_integridade_idempotencia_ref_core.sql` *(novo)* | 3 | Dados | Done | Migration 010 aplicada e reaplicada com sucesso em banco limpo/inicializado |
+| S4-03 | Criar constraints únicas para `compound_property` | `database/migrations/010_integridade_idempotencia_ref_core.sql` | 3 | Dados | Done | Índices únicos parciais validados em rerun sem erro |
+| S4-04 | Criar constraints únicas para `compound_cross_reference` | `database/migrations/010_integridade_idempotencia_ref_core.sql` | 3 | Dados | Done | Constraint validada em rerun sem erro |
+| S4-05 | Revisar e alinhar ON CONFLICT com novas constraints | `scripts/load/external_load_utils.py` | 3 | Backend | Done | ON CONFLICT agora referencia alvos explícitos e válidos |
+| S4-06 | Normalizar tratamento de erros nos extratores legados | `scripts/extract/extract_foodb.py`, `scripts/extract/extract_hmdb.py`, `scripts/extract/extract_classyfire.py`, `scripts/extract/extract_lotus.py`, `scripts/extract/extract_pubchem.py` | 3 | Backend | Done | Capturas específicas para timeout/HTTP/request/json parsing |
+| S4-07 | Adicionar timeout explícito em todos os requests HTTP | `scripts/extract/extract_foodb.py`, `scripts/extract/extract_hmdb.py`, `scripts/extract/extract_classyfire.py`, `scripts/extract/extract_lotus.py`, `scripts/extract/extract_pubchem.py`, `scripts/extract/extract_chebi.py` | 2 | Backend | Done | Chamadas HTTP dos extratores legados com timeout explícito |
+| S4-08 | Rodar validação de migrations em banco limpo e inicializado | `scripts/manage_db.py`, `database/schema_postgresql_mvp_entrega2.sql`, `database/migrations/010_integridade_idempotencia_ref_core.sql` | 2 | DevOps | Done | Migration 010 executada com sucesso em banco limpo e reaplicada sem falha |
+| S4-09 | Criar índice de candidatos para query de ranking | `database/schema_postgresql_mvp_entrega2.sql`, `database/migrations/010_integridade_idempotencia_ref_core.sql` | 3 | Dados | Done | EXPLAIN ANALYZE evidenciou Bitmap Index Scan em `idx_candidate_by_feature_rank` |
+| S4-10 | Adicionar soft-delete e `updated_at` em tabelas CORE | `database/schema_postgresql_mvp_entrega2.sql`, `database/migrations/010_integridade_idempotencia_ref_core.sql` | 1 | Dados | Done | Colunas adicionadas em `core.feature` e `core.candidate_identification` |
 
 ---
 
@@ -584,7 +586,7 @@ Uma tarefa só pode ser marcada como **Done** se:
 ```
 Sprint 2  (3 semanas)  → Escadinha Biológica — concluída ✓
 Sprint 3  (3 semanas)  → Testes & CI — concluída ✓
-Sprint 4  (3 semanas)  → Integridade de banco — dados confiáveis
+Sprint 4  (3 semanas)  → Integridade de banco — concluída ✓
 Sprint 5  (3 semanas)  → Performance & observabilidade — escala real
 Sprint 6  (2 semanas)  → Hardening de segurança
 Sprint 7  (4 semanas)  → Arquitetura & DevOps

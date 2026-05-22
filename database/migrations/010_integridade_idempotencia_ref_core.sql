@@ -39,12 +39,17 @@ WHERE a.ctid < b.ctid
   AND COALESCE(a.unit, '') = COALESCE(b.unit, '')
   AND COALESCE(a.evidence_source, '') = COALESCE(b.evidence_source, '');
 
-DELETE FROM ref.compound_cross_reference a
-USING ref.compound_cross_reference b
-WHERE a.ctid < b.ctid
-  AND COALESCE(a.external_compound_id, -1) = COALESCE(b.external_compound_id, -1)
-  AND COALESCE(a.source_name, '') = COALESCE(b.source_name, '')
-  AND COALESCE(a.accession, '') = COALESCE(b.accession, '');
+DO $$
+BEGIN
+    IF to_regclass('ref.compound_cross_reference') IS NOT NULL THEN
+        DELETE FROM ref.compound_cross_reference a
+        USING ref.compound_cross_reference b
+        WHERE a.ctid < b.ctid
+          AND COALESCE(a.external_compound_id, -1) = COALESCE(b.external_compound_id, -1)
+          AND COALESCE(a.source_name, '') = COALESCE(b.source_name, '')
+          AND COALESCE(a.accession, '') = COALESCE(b.accession, '');
+    END IF;
+END $$;
 
 -- 3) Constraints de unicidade para garantir idempotencia
 DO $$
@@ -84,6 +89,7 @@ ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
 
 ALTER TABLE core.candidate_identification
+ADD COLUMN IF NOT EXISTS is_tied BOOLEAN NOT NULL DEFAULT FALSE,
 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
 

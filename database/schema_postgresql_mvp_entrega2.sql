@@ -191,6 +191,7 @@ CREATE TABLE IF NOT EXISTS core.candidate_identification (
     global_probability    NUMERIC(20,10),
     abundance_mean        NUMERIC(20,8),
     abundance_cv          NUMERIC(12,6),
+    is_tied               BOOLEAN NOT NULL DEFAULT FALSE,
     updated_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at            TIMESTAMP
 );

@@ -1,6 +1,6 @@
 # Sprint 4 — Integridade e Idempotência de Banco
 
-**Status**: 🔴 Todo  
+**Status**: ✅ Done  
 **Capacidade**: 28 pontos  
 **Objetivo**: Garantir que reprocessamento de dados não cria duplicatas, que identificadores são padronizados entre sistemas e que há índices para suportar queries eficientes.
 
@@ -15,6 +15,18 @@ Atualmente o banco de dados é vulnerável a corrupção silenciosa:
 - Sem soft-delete, auditoria fica impossível
 
 Sprint 4 implementa garantias de integridade que são pré-requisitos para Sprints 5–8.
+
+### Andamento Atual (22/05/2026)
+
+- Concluído: padronização de `source_name`, alinhamento de `ON CONFLICT`, timeouts e tratamento de erros específicos, índice de candidatos, `updated_at` e `deleted_at`.
+- Concluído: migration 010 executada em banco limpo e reaplicada em banco inicializado sem erro.
+- Concluído: `EXPLAIN ANALYZE` validou uso de `idx_candidate_by_feature_rank` em consulta de candidatos.
+
+### Evidências Técnicas (execução local)
+
+- Cenário 1 (banco limpo): `schema_postgresql_mvp_entrega2.sql` aplicado e `010_integridade_idempotencia_ref_core.sql` executada com sucesso.
+- Cenário 2 (banco inicializado): rerun da `010_integridade_idempotencia_ref_core.sql` executado sem falha.
+- Performance: `EXPLAIN ANALYZE` mostrou `Bitmap Index Scan on idx_candidate_by_feature_rank` para filtro por `feature_id`.
 
 ---
 
@@ -74,7 +86,7 @@ Todos os loaders (`load_foodb.py`, `load_hmdb.py`, etc.) usam **exatamente** est
 ### 2. Criar Migration 010 — Constraints Únicos
 
 ```sql
--- database/migrations/010_add_unique_constraints_ref.sql
+-- database/migrations/010_integridade_idempotencia_ref_core.sql
 ALTER TABLE ref.external_identifier 
   ADD CONSTRAINT uk_external_identifier 
   UNIQUE (external_source_id, external_id);
@@ -181,13 +193,13 @@ CREATE INDEX idx_feature_not_deleted
 
 ## Próximos Passos
 
-- [ ] **Dia 1**: Revisar seed SQL e alinhar nomes de fonte
-- [ ] **Dia 2**: Criar migration 010 com constraints únicos
-- [ ] **Dia 3**: Refatorar loaders para usar ON CONFLICT correto
-- [ ] **Dia 4**: Adicionar timeout e tratamento de erro aos extratores legados
-- [ ] **Dia 5**: Rodar testes de idempotência (Sprint 3)
-- [ ] **Dia 6**: Validar índices com EXPLAIN ANALYZE
-- [ ] **Dia 7**: Adicionar soft-delete e updated_at
+- [x] **Dia 1**: Revisar seed SQL e alinhar nomes de fonte
+- [x] **Dia 2**: Criar migration 010 com constraints únicos
+- [x] **Dia 3**: Refatorar loaders para usar ON CONFLICT correto
+- [x] **Dia 4**: Adicionar timeout e tratamento de erro aos extratores legados
+- [x] **Dia 5**: Rodar testes de idempotência (Sprint 3)
+- [x] **Dia 6**: Validar índices com EXPLAIN ANALYZE
+- [x] **Dia 7**: Adicionar soft-delete e updated_at
 
 ---
 
