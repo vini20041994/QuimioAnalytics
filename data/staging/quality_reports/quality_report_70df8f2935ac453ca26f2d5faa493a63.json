@@ -1,0 +1,8 @@
+{
+  "rows_received": 3,
+  "rows_output": 2,
+  "rows_rejected": 1,
+  "loss_reasons": {
+    "invalid_isotope_similarity_range": 1
+  }
+}

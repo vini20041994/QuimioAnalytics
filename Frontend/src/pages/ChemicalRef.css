@@ -1,0 +1,253 @@
+.page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.page-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--branco-text);
+  margin-bottom: 8px;
+}
+
+.page-description {
+  color: var(--cinza-muted);
+}
+
+/* Estatísticas */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.stat-card {
+  background-color: var(--preto-elevated);
+  border: 1px solid var(--cinza-dark);
+  padding: 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.stat-card:hover {
+  border-color: var(--cinza-muted);
+}
+
+.stat-card.active {
+  border-color: var(--azul-primary);
+  background-color: rgba(1, 111, 225, 0.05);
+}
+
+.stat-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-label {
+  color: var(--cinza-muted);
+  font-size: 0.875rem;
+}
+
+.stat-value {
+  color: var(--branco-text);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.stat-icon {
+  color: var(--cinza-muted);
+}
+
+.stat-card.active .stat-icon {
+  color: var(--azul-primary);
+}
+
+/* Busca */
+.search-container {
+  background-color: var(--preto-elevated);
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--cinza-dark);
+}
+
+.search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--cinza-muted);
+}
+
+.search-input {
+  padding-left: 44px !important;
+}
+
+/* Cards de Compostos */
+.compound-card {
+  background-color: var(--preto-elevated);
+  border: 1px solid var(--cinza-dark);
+  border-radius: 12px;
+  padding: 24px;
+  transition: border-color 0.2s ease;
+  margin-top: 16px;
+ 
+}
+
+.compound-card:hover {
+  border-color: rgba(1, 111, 225, 0.5);
+}
+
+.compound-main {
+  display: flex;
+  justify-content: space-between;
+}
+
+.compound-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.icon-beaker {
+  color: var(--verde-accent);
+}
+
+.compound-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--branco-text);
+}
+
+/* Detalhes Técnicos */
+.compound-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.detail-group label, .tag-section label, .external-links label, .compound-sources label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--cinza-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.formula {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--branco-text);
+  font-weight: 600;
+}
+
+.inchikey {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8125rem;
+  color: var(--branco-text);
+}
+
+.full-width {
+  grid-column: span 2;
+}
+
+/* Tags e Badges */
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.badge-class {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: rgba(1, 111, 225, 0.1);
+  color: var(--azul-primary);
+  border: 1px solid rgba(1, 111, 225, 0.2);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8125rem;
+}
+
+/* Links Externos */
+.link-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.ext-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: filter 0.2s;
+}
+
+.ext-link.pubchem { background: rgba(0, 200, 83, 0.1); color: var(--verde-accent); border: 1px solid rgba(0, 200, 83, 0.2); }
+.ext-link.chebi { background: rgba(1, 111, 225, 0.1); color: var(--azul-primary); border: 1px solid rgba(1, 111, 225, 0.2); }
+
+.ext-link:hover {
+  filter: brightness(1.2);
+}
+
+/* Lado Direito - Fontes */
+.compound-sources {
+  min-width: 100px;
+  text-align: right;
+}
+
+.source-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.source-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+
+.source-badge.pubchem { color: var(--verde-accent); background: rgba(0, 200, 83, 0.1); border-color: rgba(0, 200, 83, 0.2); }
+.source-badge.chebi { color: var(--azul-primary); background: rgba(1, 111, 225, 0.1); border-color: rgba(1, 111, 225, 0.2); }
+
+.empty-state {
+  text-align: center;
+  padding: 48px;
+  color: var(--cinza-muted);
+  background-color: var(--preto-elevated);
+  border-radius: 12px;
+  border: 1px dashed var(--cinza-dark);
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .compound-main { flex-direction: column; gap: 20px; }
+  .compound-sources { text-align: left; }
+  .source-badges { flex-direction: row; }
+  .compound-details { grid-template-columns: 1fr; }
+  .full-width { grid-column: auto; }
+}

@@ -1,0 +1,169 @@
+/* Layout Geral */
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding-bottom: 40px;
+}
+
+.dashboard-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--branco-text);
+  margin-bottom: 8px;
+}
+
+.dashboard-subtitle {
+  color: var(--cinza-muted);
+  font-size: 1rem;
+}
+
+/* Grid de Estatísticas */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+
+.stat-card {
+  background: linear-gradient(145deg, var(--preto-elevated), var(--preto-pure));
+  border: 1px solid var(--cinza-dark);
+  border-radius: 16px;
+  padding: 24px;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+}
+
+.stat-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stat-label {
+  color: var(--cinza-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* Variações de Cores dos Cards */
+.border-verde { border-left: 4px solid var(--verde-accent); }
+.border-azul { border-left: 4px solid var(--azul-primary); }
+.border-verde-medium { border-left: 4px solid var(--verde-medium, #2e7d32); }
+.border-azul-light { border-left: 4px solid var(--azul-light, #4fc3f7); }
+
+.text-verde { color: var(--verde-accent); }
+.text-azul { color: var(--azul-primary); }
+.text-verde-medium { color: var(--verde-medium, #4caf50); }
+.text-azul-light { color: var(--azul-light, #81d4fa); }
+
+/* Seção de Gráficos */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+.chart-card, .table-card {
+  background-color: var(--preto-elevated);
+  border: 1px solid var(--cinza-dark);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.chart-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--branco-text);
+  margin-bottom: 24px;
+}
+
+.chart-wrapper {
+  width: 100%;
+  margin-top: 10px;
+}
+
+/* Seção de Gráficos */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* Cria duas colunas iguais */
+  gap: 24px; /* Espaço entre os gráficos */
+  margin-bottom: 32px;
+}
+
+/* Garante que em telas pequenas (celular) eles voltem a ficar um embaixo do outro */
+@media (max-width: 900px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Tabela Customizada */
+.table-responsive {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.dashboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.dashboard-table th {
+  padding: 12px 16px;
+  color: var(--cinza-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-bottom: 1px solid var(--cinza-dark);
+}
+
+.dashboard-table td {
+  padding: 16px;
+  color: var(--branco-text);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.935rem;
+}
+
+.dashboard-table tr:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.text-muted { color: var(--cinza-muted); }
+.font-medium { font-weight: 600; }
+
+/* Badges de Status */
+.badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-verde { background: rgba(4, 189, 162, 0.15); color: #04BDA2; }
+.badge-azul { background: rgba(1, 111, 225, 0.15); color: #016FE1; }
+.badge-vermelho { background: rgba(189, 4, 4, 0.15); color: #ff5252; }
+
+/* Responsividade */
+@media (max-width: 1200px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 900px) {
+  .charts-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 600px) {
+  .stats-grid { grid-template-columns: 1fr; }
+}

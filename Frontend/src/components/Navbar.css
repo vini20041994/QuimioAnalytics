@@ -1,0 +1,132 @@
+/* Layout Base */
+.navbar {
+  background-color: var(--preto-elevated);
+  border-bottom: 1px solid var(--cinza-dark);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  backdrop-filter: blur(12px);
+  height: 64px; /* Equivale a h-16 */
+  display: flex;
+  align-items: center;
+}
+
+.navbar-container {
+  width: 100%;
+  max-width: 1280px; /* Equivale ao container mx-auto */
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Logo e Branding */
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.brand-logo {
+  width: 40px;
+  height: 40px;
+  
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+.navbar-brand:hover .brand-logo {
+  transform: scale(1.05);
+}
+
+.brand-logo img {
+  height: 28px;
+  width: auto;
+}
+
+/* Cor específica para o "Analytics" da logo */
+.text-verde-analytics {
+  color: #00bfa5; /* Aquele verde esmeralda da imagem */
+}
+
+.brand-title {
+  color: #016fe1; /* O azul da primeira parte (Quimio) */
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+.brand-subtitle {
+  color: #016fe1; /* O azul também no subtítulo */
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 2px;
+  letter-spacing: 0.5px;
+}
+
+/* Garante que o texto fique empilhado corretamente */
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Ajuste da logo ao lado do texto */
+.brand-logo img {
+  height: 40px; /* Ajuste conforme o tamanho da sua imagem */
+  width: auto;
+}
+
+/* Itens de Navegação */
+.nav-menu {
+  display: flex;
+  gap: 4px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--cinza-muted);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.nav-item:hover {
+  color: var(--branco-text);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Estado Ativo */
+.nav-item.active {
+  background-color: var(--azul-primary);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.nav-item.active .nav-icon {
+  stroke-width: 2.5px;
+}
+
+/* Responsividade Básica */
+@media (max-width: 768px) {
+  .nav-label {
+    display: none; /* Esconde texto em telas pequenas, mantém ícones */
+  }
+  
+  .brand-subtitle {
+    display: none;
+  }
+}

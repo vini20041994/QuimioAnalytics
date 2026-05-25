@@ -1,0 +1,38 @@
+/* App.css */
+
+/* Reset e Base de Layout */
+.app-layout {
+  min-height: 100vh;
+  background-color: var(--preto-deep);
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content {
+  width: 100%;
+  max-width: 1400px; /* Equivale ao container mx-auto */
+  margin: 0 auto;
+  padding: 32px 16px; /* Equivale ao py-8 px-4 */
+  flex: 1;
+}
+
+/* Utilitários Globais (Substituindo Tailwind) */
+.flex { display: flex; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.flex-1 { flex: 1; }
+.grid { display: grid; }
+.gap-4 { gap: 16px; }
+.gap-6 { gap: 24px; }
+
+/* Tipografia Base */
+.text-branco-text { color: var(--branco-text); }
+.text-cinza-muted { color: var(--cinza-muted); }
+.font-bold { font-weight: 700; }
+
+/* Responsividade Básica */
+@media (max-width: 768px) {
+  .main-content {
+    padding: 16px;
+  }
+}

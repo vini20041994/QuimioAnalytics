@@ -1,0 +1,235 @@
+/* Layout & Header */
+.ranking-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.ranking-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.page-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--branco-text);
+  margin-bottom: 4px;
+}
+
+.page-subtitle {
+  color: var(--cinza-muted);
+}
+
+/* Filtros */
+.filter-section {
+  display: flex;
+  gap: 16px;
+  background-color: var(--preto-elevated);
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--cinza-dark);
+}
+
+.search-wrapper {
+  position: relative;
+  flex: 1;
+  
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--cinza-muted);
+}
+
+.search-wrapper .input-field {
+  padding-left: 42px;
+}
+
+/* Feature Cards */
+.feature-card {
+  background-color: var(--preto-elevated);
+  border: 1px solid var(--cinza-dark);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 16px;
+}
+
+.feature-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.feature-meta {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.feature-id-badge {
+  background-color: rgba(1, 111, 225, 0.15);
+  color: var(--azul-primary);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  border: 1px solid rgba(1, 111, 225, 0.3);
+}
+
+.spec-mz {
+  color: var(--branco-text);
+  font-weight: 600;
+  margin: 0;
+}
+
+.spec-mz span {
+  color: var(--verde-accent);
+}
+
+.spec-rt {
+  color: var(--cinza-muted);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+/* Tabela de Ranking */
+.table-container {
+  overflow-x: auto;
+}
+
+.ranking-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ranking-table th {
+  text-align: left;
+  padding: 12px;
+  font-size: 0.75rem;
+  color: var(--cinza-muted);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--cinza-dark);
+}
+
+.ranking-table td {
+  padding: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.rank-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rank-number {
+  color: var(--branco-text);
+  font-weight: 700;
+}
+
+.icon-top { color: var(--verde-accent); }
+.icon-muted { color: var(--cinza-muted); }
+
+.compound-name {
+  color: var(--branco-text);
+  font-weight: 600;
+}
+
+.compound-formula {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--cinza-muted);
+  font-size: 0.875rem;
+}
+
+/* Probabilidade Dinâmica */
+.prob-text { font-weight: 700; }
+.prob-high { color: var(--verde-accent); }
+.prob-medium { color: var(--azul-primary); }
+.prob-low { color: var(--vermelho-alert); }
+
+/* Badges de Fonte (Puro CSS) */
+.badge-source {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.badge-source.pubchem { background: rgba(4, 189, 162, 0.15); color: var(--verde-accent); border-color: rgba(4, 189, 162, 0.2); }
+.badge-source.chebi { background: rgba(1, 111, 225, 0.15); color: var(--azul-primary); border-color: rgba(1, 111, 225, 0.2); }
+.badge-source.chemspider { background: rgba(189, 4, 4, 0.15); color: var(--vermelho-alert); border-color: rgba(189, 4, 4, 0.2); }
+
+/* Informação Expandida */
+.expandable-info {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--cinza-dark);
+}
+
+.info-box {
+  display: flex;
+  gap: 12px;
+  background-color: rgba(1, 111, 225, 0.08);
+  border: 1px solid rgba(1, 111, 225, 0.2);
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.info-box h5 {
+  color: var(--azul-primary);
+  margin: 0 0 4px 0;
+  font-weight: 600;
+}
+
+.info-box p {
+  color: var(--cinza-muted);
+  font-size: 0.8125rem;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Botões */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.btn-primary { background-color: var(--azul-primary); color: white; }
+.btn-primary:hover { filter: brightness(1.1); }
+
+.btn-secondary { background-color: var(--preto-pure); color: var(--branco-text); border: 1px solid var(--cinza-dark); }
+.btn-secondary:hover { border-color: var(--cinza-muted); }
+
+.btn-ghost { background: transparent; color: var(--cinza-muted); border: 1px solid var(--cinza-dark); }
+.btn-ghost:hover { color: var(--branco-text); border-color: var(--cinza-muted); }
+
+.text-muted { color: var(--cinza-muted); }
+
+
+/* No seu Top5Ranking.css, adicione ou corrija: */
+.input-field {
+  background: transparent;
+  border: none;
+  color: var(--branco-text); /* Garante que o texto digitado apareça */
+  width: 100%;
+  font-size: 14px;
+  outline: none;
+}
+
+.input-field::placeholder {
+  color: var(--cinza-muted);
+}
