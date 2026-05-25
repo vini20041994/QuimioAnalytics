@@ -1,6 +1,6 @@
 # Sprint 5 - Contrato de Dados e Rastreabilidade de Entrada
 
-**Status**: Todo  
+**Status**: Done  
 **Capacidade**: 24 pontos  
 **Origem**: IST-v2 (alocacao cronologica de IST-01)  
 **Objetivo**: Formalizar contrato dos dados exportados do Progenesis e padrao de rastreabilidade desde a origem.
@@ -29,10 +29,27 @@ Esta sprint abre o ciclo IST-v2 dentro da cronologia legada. O foco e garantir q
 - Especificacao de entrada para planilhas de identificacao e abundancia.
 - Registro de lineage minimo (arquivo origem, timestamp, hash e versao do pipeline).
 
+## Implementacao Executada
+
+- Contrato de entrada aplicado no pipeline principal com validacao explicita por origem (identificacao e abundancia).
+- Erros de schema agora incluem colunas faltantes e colunas disponiveis para acao imediata.
+- Lineage e correlacao de execucao adicionados ao output com:
+	- `execution_id`
+	- `pipeline_version`
+	- `ingestion_timestamp_utc`
+	- `source_identificacao_file`, `source_identificacao_sha256`, `source_identificacao_mtime_utc`
+	- `source_abundancia_file`, `source_abundancia_sha256`, `source_abundancia_mtime_utc`
+- Logging estruturado adicionado no inicio e fim da execucao de ranking.
+
 ## Criterios de Aceite
 
 - Pipeline recusa schema invalido com erro explicito.
 - Entrada valida gera log rastreavel com identificador de execucao.
+
+Status de aceite:
+
+- [x] Pipeline recusa schema invalido com erro explicito.
+- [x] Entrada valida gera log rastreavel com identificador de execucao.
 
 ## Handoff entre Agentes
 

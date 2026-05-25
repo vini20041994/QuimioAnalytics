@@ -1,4 +1,8 @@
 import argparse
+import hashlib
+import logging
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -6,9 +10,13 @@ import pandas as pd
 from scripts.config import RAW_INPUTS_DIR, STAGING_DIR
 from scripts.models.biological_ranking_engine import BiologicalRankingEngine
 from .database_candidates import load_candidates_to_core
-from .io import load_and_merge_planilhas
+from .io import INPUT_CONTRACT, load_and_merge_planilhas
+
+
+LOGGER = logging.getLogger(__name__)
 DEFAULT_OUTPUT_PATH = STAGING_DIR / "biological_ranking_candidates.parquet"
 DEFAULT_BATCH_NAME = "BIOLOGICAL_RANKING"
+PIPELINE_VERSION = "IST-v2-S5"
 
 RENAME_MAP = {
     "Neutral mass (Da)": "neutral_mass",
@@ -22,6 +30,38 @@ RENAME_MAP = {
 }
 
 REQUIRED_COLS = ["Compound", "Adducts", "score_original", "fragment_score", "isotope_similarity", "mass_error_ppm"]
+
+
+def _sha256_file(file_path):
+    hash_obj = hashlib.sha256()
+    with Path(file_path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            hash_obj.update(chunk)
+    return hash_obj.hexdigest()
+
+
+def _iso_utc_from_ts(timestamp_value):
+    return datetime.fromtimestamp(timestamp_value, tz=timezone.utc).isoformat()
+
+
+def _build_lineage_metadata(identificacao_xlsx, abund_xlsx, execution_id):
+    identificacao_path = Path(identificacao_xlsx)
+    abundancia_path = Path(abund_xlsx)
+
+    ident_stat = identificacao_path.stat()
+    abund_stat = abundancia_path.stat()
+
+    return {
+        "execution_id": execution_id,
+        "pipeline_version": PIPELINE_VERSION,
+        "ingestion_timestamp_utc": datetime.now(tz=timezone.utc).isoformat(),
+        "source_identificacao_file": str(identificacao_path.resolve()),
+        "source_identificacao_sha256": _sha256_file(identificacao_path),
+        "source_identificacao_mtime_utc": _iso_utc_from_ts(ident_stat.st_mtime),
+        "source_abundancia_file": str(abundancia_path.resolve()),
+        "source_abundancia_sha256": _sha256_file(abundancia_path),
+        "source_abundancia_mtime_utc": _iso_utc_from_ts(abund_stat.st_mtime),
+    }
 
 
 def _find_replicate_columns(df):
@@ -53,13 +93,35 @@ def run_biological_candidate_ranking(
     load_core=False,
     batch_name=DEFAULT_BATCH_NAME,
 ):
+    execution_id = uuid.uuid4().hex
     output_path = Path(output_path)
+
+    LOGGER.info(
+        "ranking_execution_started",
+        extra={
+            "execution_id": execution_id,
+            "pipeline_version": PIPELINE_VERSION,
+            "identificacao_xlsx": str(identificacao_xlsx),
+            "abund_xlsx": str(abund_xlsx),
+            "output_path": str(output_path),
+        },
+    )
+
     df = load_and_merge_planilhas(
         identificacao_xlsx=identificacao_xlsx,
         abund_xlsx=abund_xlsx,
         rename_map=RENAME_MAP,
         required_cols=REQUIRED_COLS,
+        input_contract=INPUT_CONTRACT,
     )
+
+    lineage_metadata = _build_lineage_metadata(
+        identificacao_xlsx=identificacao_xlsx,
+        abund_xlsx=abund_xlsx,
+        execution_id=execution_id,
+    )
+    for column_name, column_value in lineage_metadata.items():
+        df[column_name] = column_value
 
     _compute_abundance_metrics(df)
 
@@ -89,6 +151,17 @@ def run_biological_candidate_ranking(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(output_path, index=False)
 
+    LOGGER.info(
+        "ranking_execution_completed",
+        extra={
+            "execution_id": execution_id,
+            "pipeline_version": PIPELINE_VERSION,
+            "output_path": str(output_path),
+            "row_count": int(len(df)),
+            "feature_groups": int(df["feature_group"].nunique()),
+        },
+    )
+
     print(f"Sucesso: {len(df)} candidatos exportados para {output_path} (todos os candidatos)")
     print("\nCandidatos rankeados:")
     cols_exibir = [
@@ -111,6 +184,10 @@ def run_biological_candidate_ranking(
 
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
     parser = argparse.ArgumentParser(description="Ranking biologico e carga opcional no schema core")
     parser.add_argument("--identificacao", default=str(RAW_INPUTS_DIR / "IDENTIFICACAO.xlsx"), help="Caminho da planilha de identificação (xlsx)")
     parser.add_argument("--abundancia", default=str(RAW_INPUTS_DIR / "ABUND.xlsx"), help="Caminho da planilha de abundância (xlsx)")

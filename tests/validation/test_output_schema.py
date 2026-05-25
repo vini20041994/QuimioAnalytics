@@ -54,6 +54,15 @@ def test_output_schema_contains_required_columns_and_rank_group_is_valid(tmp_pat
         "fragment_score",
         "isotope_similarity",
         "mass_error_ppm",
+        "execution_id",
+        "pipeline_version",
+        "ingestion_timestamp_utc",
+        "source_identificacao_file",
+        "source_identificacao_sha256",
+        "source_identificacao_mtime_utc",
+        "source_abundancia_file",
+        "source_abundancia_sha256",
+        "source_abundancia_mtime_utc",
     }
 
     assert required_cols.issubset(set(ranked.columns))

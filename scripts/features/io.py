@@ -2,6 +2,25 @@ import pandas as pd
 from pathlib import Path
 
 
+INPUT_CONTRACT = {
+    "identificacao": {
+        "required": [
+            "Compound",
+            "Adducts",
+            "score_original",
+            "fragment_score",
+            "isotope_similarity",
+            "mass_error_ppm",
+        ]
+    },
+    "abundancia": {
+        "required": [
+            "Compound",
+        ]
+    },
+}
+
+
 def _normalize_merge_key_types(df_id, df_abund, merge_keys):
     for key in merge_keys:
         if key in ("mz", "rt"):
@@ -38,7 +57,24 @@ def _coalesce_duplicated_merge_columns(df, duplicate_suffix="_abund"):
             df.drop(columns=[duplicate_column], inplace=True)
 
 
-def load_and_merge_planilhas(identificacao_xlsx, abund_xlsx, rename_map, required_cols):
+def _validate_input_contract(df, required_columns, source_label, source_path):
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        available_columns = sorted(str(col) for col in df.columns)
+        raise ValueError(
+            "Schema invalido em "
+            f"{source_label} ({source_path.name}): colunas obrigatorias ausentes {missing_columns}. "
+            f"Colunas disponiveis: {available_columns}"
+        )
+
+
+def load_and_merge_planilhas(
+    identificacao_xlsx,
+    abund_xlsx,
+    rename_map,
+    required_cols,
+    input_contract=None,
+):
     """Carrega planilhas, padroniza colunas e faz merge por chaves comuns."""
     identificacao_xlsx = Path(identificacao_xlsx)
     abund_xlsx = Path(abund_xlsx)
@@ -48,6 +84,20 @@ def load_and_merge_planilhas(identificacao_xlsx, abund_xlsx, rename_map, require
 
     df_id.rename(columns=rename_map, inplace=True)
     df_abund.rename(columns=rename_map, inplace=True)
+
+    if input_contract is not None:
+        _validate_input_contract(
+            df=df_id,
+            required_columns=input_contract["identificacao"]["required"],
+            source_label="planilha de identificacao",
+            source_path=identificacao_xlsx,
+        )
+        _validate_input_contract(
+            df=df_abund,
+            required_columns=input_contract["abundancia"]["required"],
+            source_label="planilha de abundancia",
+            source_path=abund_xlsx,
+        )
 
     merge_keys = [col for col in ['Compound', 'mz', 'rt'] if col in df_id.columns and col in df_abund.columns]
     if not merge_keys:
@@ -60,6 +110,9 @@ def load_and_merge_planilhas(identificacao_xlsx, abund_xlsx, rename_map, require
 
     missing = [c for c in required_cols if c not in df.columns]
     if missing:
-        raise ValueError(f"Colunas obrigatórias ausentes após o merge: {missing}")
+        raise ValueError(
+            f"Colunas obrigatorias ausentes apos o merge: {missing}. "
+            f"Colunas disponiveis no dataframe final: {sorted(str(col) for col in df.columns)}"
+        )
 
     return df
