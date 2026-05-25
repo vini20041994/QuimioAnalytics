@@ -1,6 +1,6 @@
 # Sprint 8 - Enriquecimento Quimico Externo
 
-**Status**: Todo  
+**Status**: Done  
 **Capacidade**: 20 pontos  
 **Origem**: IST-v2 (alocacao cronologica de IST-04)  
 **Objetivo**: Integrar enriquecimento por APIs externas com rastreabilidade e fallback.
@@ -34,6 +34,18 @@ Esta sprint conecta os resultados internos do pipeline com bases quimicas extern
 
 - Falha em uma API nao interrompe lote completo; registrar pendencias para retentativa.
 - Toda informacao enriquecida referencia fonte e timestamp de consulta.
+
+Status de aceite:
+
+- [x] Falha por fonte nao interrompe lote completo; pendencias gravadas em `external_enrichment_pending_retry.json`.
+- [x] Snapshot enriquecido inclui `enrichment_source` e `enrichment_queried_at` para rastreabilidade.
+
+## Evidencias de Implementacao
+
+- Orquestrador externo atualizado para fallback por fonte com status individual de execucao.
+- Integracao de entrada ClassyFire adicionada ao fluxo (`candidates_classyfire_input.txt`).
+- Consolidacao de snapshot enriquecido em `data/staging/external_enrichment_snapshot.parquet`.
+- Relatorio operacional em `data/staging/external_enrichment_report.json` com estado por fonte.
 
 ## Handoff entre Agentes
 
