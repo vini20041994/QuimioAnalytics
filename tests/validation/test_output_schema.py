@@ -50,6 +50,7 @@ def test_output_schema_contains_required_columns_and_rank_group_is_valid(tmp_pat
         "rank",
         "is_tied",
         "original_id",
+        "score",
         "fragment_score",
         "isotope_similarity",
         "mass_error_ppm",

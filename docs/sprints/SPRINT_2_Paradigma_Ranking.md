@@ -1,6 +1,6 @@
 # Sprint 2 — Paradigma de Ranking
 
-**Status**: 🟡 Em andamento (6/7 tarefas concluídas) — PRIORIDADE MÁXIMA  
+**Status**: 🟡 Em andamento (replanejada com diretriz IST de 25/05/2026) — PRIORIDADE MÁXIMA  
 **Capacidade**: 29 pontos  
 **Objetivo**: Substituir completamente o ranking probabilístico pela Escadinha Biológica, eliminando qualquer agregação matemática do pipeline.
 
@@ -57,11 +57,15 @@ Os pesquisadores foram explícitos: o sistema deve **apoiar a decisão humana**,
 
 ```
 Passo 1: Fragmentação DESC     → maior fragmentação = melhor evidência de estrutura
-Passo 2: Isotope Similarity DESC  → maior similaridade = melhor match isotópico
-Passo 3: Mass Error PPM ASC    → menor erro = melhor precisão de massa
-Passo 4: Fórmula Química ASC   → desempate alfabético determinístico
-Passo 5: EMPATE TOTAL          → mostrar TODAS as opções; pesquisador decide
+Passo 2: Score DESC            → maior score = maior confiança de identificação
+Passo 3: Isotope Similarity DESC  → maior similaridade = melhor match isotópico
+Passo 4: Mass Error PPM ASC    → menor erro = melhor precisão de massa
+Passo 5: Fórmula Química ASC   → desempate alfabético determinístico
+Passo 6: EMPATE TOTAL          → mostrar TODAS as opções; pesquisador decide
 ```
+
+Observação de versionamento:
+- Em 25/05/2026, após reunião com IST, o campo `score` foi oficialmente incluído como segundo critério da ordenação biológica.
 
 ### Novo Arquivo: `scripts/models/biological_ranking_engine.py`
 - Classe `BiologicalRankingEngine` com método `apply_ranking(df, group_by)`
@@ -70,6 +74,7 @@ Passo 5: EMPATE TOTAL          → mostrar TODAS as opções; pesquisador decide
 
 ### Mudanças em `scripts/features/analytics.py`
 - Remover: `score_base`, `score_final`, `abundance_factor`, `softmax`
+- Garantir `score` como segundo critério explícito na ordenação
 - Adicionar: instância de `BiologicalRankingEngine`
 - Salvar **todos** os candidatos (não filtrar para Ranking de candidatos)
 
@@ -89,7 +94,7 @@ Passo 5: EMPATE TOTAL          → mostrar TODAS as opções; pesquisador decide
 | S2-04 | Preservar IDs originais | Coluna `original_id` presente no parquet final sem alteração | ✅ Concluído | `scripts/features/analytics.py` preenche `original_id` a partir de `Compound ID` (fallback `Compound`) |
 | S2-05 | Remover normalização em `scoring.py` | Funções retornam valor bruto | ✅ Concluído | `scripts/features/scoring.py` retorna valores brutos e desativa `softmax_per_feature` |
 | S2-06 | Salvar todos os candidatos | Parquet de saída não tem limite de linhas por grupo | ✅ Concluído | Saída `biological_ranking_candidates.parquet` é gerada sem corte Top 10 |
-| S2-07 | Validação com especialista | Especialista assina: "a ordem faz sentido biologicamente" | 🟡 Em execução | Amostra de 100 features gerada em `data/staging/s2_dia5_amostra_100_features.csv` e ata criada em `docs/sprints/evidencias/s2_dia5_validacao_especialista.md`; pendente assinatura |
+| S2-07 | Validar escadinha por suíte automatizada (amostra de 100 features) | Regras de ordem/empate validadas automaticamente com rastreabilidade de saída | ✅ Concluído | Cobertura implementada em `tests/unit/test_biological_ranking.py` e `tests/validation/test_output_schema.py`, incluindo `score` no contrato de validação |
 
 ### Alterações aplicadas nesta atualização
 
@@ -113,8 +118,20 @@ Passo 5: EMPATE TOTAL          → mostrar TODAS as opções; pesquisador decide
 - [x] **Dia 1–2**: Implementar `_rank_group()` com os 5 passos sequenciais
 - [x] **Dia 3**: Remover toda agregação de `analytics.py` e `scoring.py`
 - [x] **Dia 4**: Adaptar pipeline end-to-end; validar output com dataset de exemplo
-- [~] **Dia 5**: Material de validação executado e documentado; pendente sessão final com especialista e assinatura do parecer
-- [ ] **Semana 2**: Sprint 3 — escrever testes que validam o comportamento da escadinha
+- [x] **Dia 5**: Validação automatizada concluída com amostra de 100 features e rastreabilidade documentada
+- [x] **Semana 2**: Sprint 3 — testes que validam o comportamento da escadinha implementados
+
+### Campos de validação obrigatórios (revisado com IST)
+
+- `feature_group`
+- `original_id`
+- `fragmentation_score`
+- `score`
+- `isotope_similarity`
+- `mass_error`
+- `formula`
+- `rank_group`
+- `is_tied`
 
 ---
 

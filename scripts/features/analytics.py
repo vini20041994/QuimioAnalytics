@@ -67,6 +67,9 @@ def run_biological_candidate_ranking(
     for col in numeric_score_cols:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
+    # Canonical column used by the ranking engine and validation contract.
+    df["score"] = df["score_original"]
+
     if "Compound ID" in df.columns:
         df["original_id"] = df["Compound ID"]
     else:

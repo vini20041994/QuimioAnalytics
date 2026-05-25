@@ -1,8 +1,10 @@
 # AUDITORIA TÉCNICA E QUADRO DE SPRINT — QUIMIOANALYTICS
 
-**Data**: 22 de Maio de 2026  
-**Versão**: 3.3 — Atualizada com conclusão da Sprint 4  
+**Data**: 25 de Maio de 2026  
+**Versão**: 3.4 — Atualizada com reestruturação IST (score incluído na ordenação)  
 **Escopo**: Auditoria consolidada + planejamento executável por arquivo  
+
+**Atualização IST (25/05/2026)**: o plano foi distribuído nos arquivos separados de sprint (`docs/sprints/SPRINT_5_Performance_Observabilidade.md` até `docs/sprints/SPRINT_10_Validacao_IST_Entrega_Cientifica.md`) com cronologia preservada.
 
 ---
 
@@ -61,10 +63,11 @@ ranking       = softmax(score_final)       # probabilístico
 
 ```
 Passo 1  →  Fragmentação DESC (maior fragmentação = melhor identificação)
-Passo 2  →  Se empate: Isotope Similarity DESC
-Passo 3  →  Se empate: Mass Error PPM ASC (menor = melhor)
-Passo 4  →  Se empate: Fórmula Química (ordem alfabética)
-Passo 5  →  Se ainda empate: MOSTRAR TODAS as opções → decisão técnica contextual
+Passo 2  →  Se empate: Score DESC (maior score = maior confiança de identificação)
+Passo 3  →  Se empate: Isotope Similarity DESC
+Passo 4  →  Se empate: Mass Error PPM ASC (menor = melhor)
+Passo 5  →  Se empate: Fórmula Química (ordem alfabética)
+Passo 6  →  Se ainda empate: MOSTRAR TODAS as opções → decisão técnica contextual
 ```
 
 ### Princípios Impostos pelos Pesquisadores
@@ -84,9 +87,9 @@ Passo 5  →  Se ainda empate: MOSTRAR TODAS as opções → decisão técnica c
 Feature: m/z = 100.5, RT = 5.3 min
 
 Candidatos:
-  A: Fragmentação=95, Isotope=92, MassError=1.2 ppm, Formula=C5H8O2
-  B: Fragmentação=95, Isotope=92, MassError=1.2 ppm, Formula=C6H4O
-  C: Fragmentação=90, Isotope=88, MassError=0.8 ppm, Formula=C5H10O
+    A: Fragmentação=95, Score=97, Isotope=92, MassError=1.2 ppm, Formula=C5H8O2
+    B: Fragmentação=95, Score=97, Isotope=92, MassError=1.2 ppm, Formula=C6H4O
+    C: Fragmentação=90, Score=84, Isotope=88, MassError=0.8 ppm, Formula=C5H10O
 
 RANKING ATUAL (ERRADO):
   score_A = 0.94 → sistema escolhe A arbitrariamente
@@ -95,9 +98,10 @@ RANKING ATUAL (ERRADO):
 
 ESCADINHA BIOLÓGICA (CORRETO):
   Passo 1 (Frag):  A=95, B=95, C=90  → EMPATE entre A e B
-  Passo 2 (Iso):   A=92, B=92        → EMPATE entre A e B
-  Passo 3 (Mass):  A=1.2, B=1.2      → EMPATE entre A e B
-  Passo 4 (Form):  A=C5H8O2, B=C6H4O → DIFERENTES
+    Passo 2 (Score): A=97, B=97        → EMPATE entre A e B
+    Passo 3 (Iso):   A=92, B=92        → EMPATE entre A e B
+    Passo 4 (Mass):  A=1.2, B=1.2      → EMPATE entre A e B
+    Passo 5 (Form):  A=C5H8O2, B=C6H4O → DIFERENTES
 
   Resultado: "Rank 1 (EMPATE — 2 opções): A e B.
               C5H10O é Rank 2.
@@ -488,6 +492,30 @@ Capacidade: **28 pontos**
 
 ---
 
+### Alocação Cronológica dos Novos Sprints IST-v2
+
+Para preservar a cronologia do plano legado e incorporar as decisões da reunião IST:
+
+- S1 a S4 permanecem como histórico concluído.
+- O novo planejamento é alocado a partir de S5, mantendo sequência temporal.
+
+| Cronologia | Alocação | Escopo |
+|---|---|---|
+| S1 | Histórico | Estabilização crítica (concluída) |
+| S2 | Histórico | Paradigma de ranking (concluída) |
+| S3 | Histórico | Testes e qualidade (concluída) |
+| S4 | Histórico | Integridade e idempotência de banco (concluída) |
+| S5 | IST-01 | Contrato de dados e rastreabilidade de entrada |
+| S6 | IST-02 | Ranking biológico v2 com `score` |
+| S7 | IST-03 | ETL científico e integração das tags |
+| S8 | IST-04 | Enriquecimento químico externo |
+| S9 | IST-05 | Saída analítica final (Excel/CSV/Dashboard) |
+| S10 | IST-06 | Validação IST e pacote de entrega científica |
+
+Referência detalhada: `docs/sprints/SPRINT_5_Performance_Observabilidade.md`, `docs/sprints/SPRINT_6_Hardening_Seguranca.md`, `docs/sprints/SPRINT_7_Arquitetura_CICD.md`, `docs/sprints/SPRINT_8_Validacao_Cientifica.md`, `docs/sprints/SPRINT_9_Saida_Analitica_Final.md` e `docs/sprints/SPRINT_10_Validacao_IST_Entrega_Cientifica.md`.
+
+---
+
 ### Sprint 5 — Performance e Observabilidade
 Objetivo: aumentar throughput, rastreabilidade e governança de dados.  
 Capacidade: **37 pontos**
@@ -587,12 +615,14 @@ Uma tarefa só pode ser marcada como **Done** se:
 Sprint 2  (3 semanas)  → Escadinha Biológica — concluída ✓
 Sprint 3  (3 semanas)  → Testes & CI — concluída ✓
 Sprint 4  (3 semanas)  → Integridade de banco — concluída ✓
-Sprint 5  (3 semanas)  → Performance & observabilidade — escala real
-Sprint 6  (2 semanas)  → Hardening de segurança
-Sprint 7  (4 semanas)  → Arquitetura & DevOps
-Sprint 8  (4 semanas)  → Validação científica & paper
+Sprint 5  (2 semanas)  → IST-01: Contrato de dados & rastreabilidade
+Sprint 6  (2 semanas)  → IST-02: Ranking biológico v2 com `score`
+Sprint 7  (2 semanas)  → IST-03: ETL científico & tags Progenesis
+Sprint 8  (2 semanas)  → IST-04: Enriquecimento químico externo
+Sprint 9  (2 semanas)  → IST-05: Saída analítica final (Excel/CSV/Dashboard)
+Sprint 10 (2 semanas)  → IST-06: Validação IST & pacote científico
 
-Julho 2026 → Sistema cientificamente válido e pronto para produção ✓
+Julho/Agosto 2026 → Sistema cientificamente válido e pronto para produção ✓
 ```
 
 ---

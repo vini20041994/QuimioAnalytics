@@ -12,6 +12,7 @@ class RankingColumns:
     """Column names used by the biological ranking engine."""
 
     fragmentation: str = "fragment_score"
+    score: str = "score"
     isotope_similarity: str = "isotope_similarity"
     mass_error_ppm: str = "mass_error_ppm"
     formula: str = "formula"
@@ -22,10 +23,11 @@ class BiologicalRankingEngine:
 
     Ladder order:
     1) fragmentation DESC
-    2) isotope_similarity DESC
-    3) mass_error_ppm ASC (absolute value)
-    4) formula ASC
-    5) full ties are preserved for deterministic downstream processing
+    2) score DESC
+    3) isotope_similarity DESC
+    4) mass_error_ppm ASC (absolute value)
+    5) formula ASC
+    6) full ties are preserved for deterministic downstream processing
     """
 
     def __init__(self, columns: RankingColumns | None = None) -> None:
@@ -70,16 +72,19 @@ class BiologicalRankingEngine:
 
     def _rank_group(self, df: pd.DataFrame, group_columns: Sequence[str]) -> pd.DataFrame:
         frag_col = self.columns.fragmentation
+        score_col = self.columns.score
         iso_col = self.columns.isotope_similarity
         mass_col = self.columns.mass_error_ppm
         formula_col = self.columns.formula
 
         df[frag_col] = pd.to_numeric(df[frag_col], errors="coerce")
+        df[score_col] = pd.to_numeric(df[score_col], errors="coerce")
         df[iso_col] = pd.to_numeric(df[iso_col], errors="coerce")
         df[mass_col] = pd.to_numeric(df[mass_col], errors="coerce")
 
         # Helper columns keep tie detection explicit and deterministic.
         df["_rank_fragmentation"] = df[frag_col]
+        df["_rank_score"] = df[score_col]
         df["_rank_isotope"] = df[iso_col]
         df["_rank_mass_abs"] = df[mass_col].abs()
         df["_rank_formula"] = df[formula_col].fillna("").astype(str).str.strip().str.casefold()
@@ -89,17 +94,18 @@ class BiologicalRankingEngine:
             [
                 *group_columns,
                 "_rank_fragmentation",
+                "_rank_score",
                 "_rank_isotope",
                 "_rank_mass_abs",
                 "_rank_formula",
                 "_stable_row_order",
             ],
-            ascending=[True] * len(group_columns) + [False, False, True, True, True],
+            ascending=[True] * len(group_columns) + [False, False, False, True, True, True],
             na_position="last",
             kind="stable",
         ).copy()
 
-        tie_cols = ["_rank_fragmentation", "_rank_isotope", "_rank_mass_abs", "_rank_formula"]
+        tie_cols = ["_rank_fragmentation", "_rank_score", "_rank_isotope", "_rank_mass_abs", "_rank_formula"]
         prev = ordered.groupby(list(group_columns), dropna=False, sort=False)[tie_cols].shift(1)
 
         same_as_previous = pd.Series(True, index=ordered.index, dtype=bool)
@@ -142,6 +148,7 @@ class BiologicalRankingEngine:
         required = {
             *group_columns,
             self.columns.fragmentation,
+            self.columns.score,
             self.columns.isotope_similarity,
             self.columns.mass_error_ppm,
             self.columns.formula,
