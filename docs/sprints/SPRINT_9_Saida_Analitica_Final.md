@@ -1,6 +1,6 @@
 # Sprint 9 - Saida Analitica Final
 
-**Status**: Todo  
+**Status**: Done  
 **Capacidade**: 24 pontos  
 **Origem**: IST-v2 (alocacao cronologica de IST-05)  
 **Objetivo**: Entregar visao analitica final orientada a decisao cientifica em Excel, CSV e Dashboard.
@@ -45,6 +45,20 @@ Sprint 9 concentra a entrega visivel para especialistas e pesquisadores, com est
 - Especialista encontra e exporta candidatos prioritarios em um unico fluxo.
 - Colunas finais ficam consistentes entre CSV, Excel e dashboard.
 - Output final preserva rastreabilidade da origem e versao de processamento.
+
+Status de aceite:
+
+- [x] Frontend integrado ao backend sem alteracao de estrutura visual.
+- [x] Exportacao CSV/XLSX conectada ao dataset final com colunas padronizadas.
+- [x] Dashboard, ranking, upload e referencia quimica consumindo contratos REST unificados.
+
+## Evidencias de Implementacao
+
+- API REST criada em `api/main.py` com endpoints de dashboard, ranking, compostos, upload e exportacao.
+- Servico de consolidacao do dataset final criado em `api/services/final_dataset_service.py`.
+- Frontend base `Frontend/` conectado ao backend via `src/services/api.js` sem alterar layout/CSS das paginas.
+- Proxy de desenvolvimento configurado em `Frontend/vite.config.js` para rota `/api`.
+- Testes de integracao da API adicionados em `tests/integration/test_api_frontend_integration.py`.
 
 ## Handoff entre Agentes
 
