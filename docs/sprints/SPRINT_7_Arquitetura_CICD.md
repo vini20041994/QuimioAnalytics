@@ -1,6 +1,6 @@
 # Sprint 7 - ETL Cientifico e Integracao das Tags
 
-**Status**: Todo  
+**Status**: Done  
 **Capacidade**: 24 pontos  
 **Origem**: IST-v2 (alocacao cronologica de IST-03)  
 **Objetivo**: Garantir ingestao confiavel de metricas principais e tags de biblioteca do Progenesis.
@@ -33,6 +33,18 @@ Esta sprint consolida o tratamento ETL das informacoes exportadas pelo Progenesi
 
 - Reprocessamento idempotente sem duplicar registros.
 - Perdas de linha sem motivo identificado sao bloqueantes.
+
+Status de aceite:
+
+- [x] Reprocessamento idempotente aplicado com deduplicacao por `feature_group` + `original_id`.
+- [x] Perdas de linha sem motivo identificado bloqueiam execucao via erro explicito.
+
+## Evidencias de Implementacao
+
+- Tags Progenesis normalizadas e persistidas no output (`tag_branco`, `tag_abund_gt_*`, `tag_anova_p_le_005`, `tag_max_fold_change_ge_2`, `tag_not_fragmented`).
+- Validacoes de consistencia adicionadas para score, fragmentacao, isotopia e metrica estatistica opcional (`anova_p_value`, `max_fold_change`).
+- Relatorio de qualidade por lote gerado em JSON com `rows_received`, `rows_output`, `rows_rejected` e `loss_reasons`.
+- Caminho do relatorio anexado ao dataframe final em `quality_report_path` para rastreabilidade.
 
 ## Handoff entre Agentes
 
