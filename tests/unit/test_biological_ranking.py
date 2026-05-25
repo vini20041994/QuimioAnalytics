@@ -95,3 +95,16 @@ def test_biological_ranking_preserves_original_ids(ranking_input_df):
 
     assert set(ranked["original_id"]) == {"cmp-1", "cmp-2", "cmp-3"}
     assert len(ranked) == len(ranking_input_df)
+
+
+@pytest.mark.unit
+def test_biological_ranking_is_deterministic_across_repeated_runs(ranking_input_df):
+    engine = BiologicalRankingEngine()
+
+    first_run = engine.apply_ranking(ranking_input_df.sample(frac=1, random_state=7), group_by="feature_group")
+    second_run = engine.apply_ranking(ranking_input_df.sample(frac=1, random_state=11), group_by="feature_group")
+
+    first_view = first_run[["original_id", "rank_group", "is_tied"]].sort_values("original_id").reset_index(drop=True)
+    second_view = second_run[["original_id", "rank_group", "is_tied"]].sort_values("original_id").reset_index(drop=True)
+
+    pd.testing.assert_frame_equal(first_view, second_view)

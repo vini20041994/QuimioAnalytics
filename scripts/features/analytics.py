@@ -148,6 +148,10 @@ def run_biological_candidate_ranking(
     df["rank"] = df["rank_group"].astype(int)
     df["abs_mass_error_ppm"] = df["mass_error_ppm"].abs()
 
+    # Contract aliases kept for downstream compatibility with IST-v2 docs.
+    df["fragmentation_score"] = df["fragment_score"]
+    df["mass_error"] = df["mass_error_ppm"]
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(output_path, index=False)
 

@@ -1,6 +1,6 @@
 # Sprint 6 - Ranking Biologico v2 com Score
 
-**Status**: Todo  
+**Status**: Done  
 **Capacidade**: 20 pontos  
 **Origem**: IST-v2 (alocacao cronologica de IST-02)  
 **Objetivo**: Atualizar a escadinha biologica para incluir score como segundo criterio oficial.
@@ -33,6 +33,17 @@ A ordenacao biologica foi redefinida na reuniao com IST. Esta sprint materializa
 
 - Ranking deterministico reproduzivel em execucoes repetidas com mesmo input.
 - Campos obrigatorios presentes no output: feature_group, original_id, fragmentation_score, score, isotope_similarity, mass_error, formula, rank_group, is_tied.
+
+Status de aceite:
+
+- [x] Ranking deterministico validado por teste automatizado.
+- [x] Contrato de output atualizado com aliases `fragmentation_score` e `mass_error` sem perder colunas canonicas.
+
+## Evidencias de Implementacao
+
+- Motor de ranking mantido com ordem oficial: fragmentacao -> score -> isotopica -> erro de massa -> formula.
+- Pipeline inclui colunas de contrato exigidas para entrega IST-v2.
+- Testes unitarios/validacao cobrem criterio de score e reproducibilidade de execucao.
 
 ## Handoff entre Agentes
 
