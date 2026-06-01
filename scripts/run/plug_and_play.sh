@@ -1,10 +1,14 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
 ensure_docker() {
   if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     return
   fi
 
   if [[ "$(uname -s)" == "Linux" ]]; then
-    echo "[plug-and-play] Docker não encontrado. Instalando Docker e Docker Compose..."
+    echo "[plug-and-play] Docker nÃ£o encontrado. Instalando Docker e Docker Compose..."
     sudo apt update
     sudo apt install -y docker.io docker-compose
     sudo systemctl enable --now docker
@@ -12,13 +16,75 @@ ensure_docker() {
     echo "[plug-and-play] Docker instalado. Reinicie o terminal para ativar o grupo docker e rode novamente este script."
     exit 0
   else
-    echo "[plug-and-play] Docker não encontrado. Instale manualmente o Docker Desktop e o WSL no Windows."
+    echo "[plug-and-play] Docker nÃ£o encontrado. Instale manualmente o Docker Desktop e o WSL no Windows."
     exit 1
   fi
 }
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT_DIR"
+
+usage() {
+  cat <<'EOF'
+Uso:
+  scripts/run/plug_and_play.sh up
+  scripts/run/plug_and_play.sh down
+  scripts/run/plug_and_play.sh logs [servico]
+
+Comandos:
+  up      Sobe PostgreSQL, backend e frontend com build.
+  down    Derruba a stack criada pelo docker compose.
+  logs    Exibe logs da stack (ou de um servico especifico).
+EOF
+}
+
+resolve_compose_cmd() {
+  if docker compose version >/dev/null 2>&1; then
+    echo "docker compose"
+    return
+  fi
+
+  if command -v docker-compose >/dev/null 2>&1; then
+    echo "docker-compose"
+    return
+  fi
+
+  if command -v flatpak-spawn >/dev/null 2>&1 && flatpak-spawn --host docker compose version >/dev/null 2>&1; then
+    echo "flatpak-spawn --host docker compose"
+    return
+  fi
+
+  if command -v flatpak-spawn >/dev/null 2>&1 && flatpak-spawn --host docker-compose --version >/dev/null 2>&1; then
+    echo "flatpak-spawn --host docker-compose"
+    return
+  fi
+
+  echo "[ERRO] Docker Compose nao encontrado no ambiente atual." >&2
+  exit 1
+}
+
 #!/usr/bin/env bash
 
 set -euo pipefail
+
+ensure_docker() {
+  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    return
+  fi
+
+  if [[ "$(uname -s)" == "Linux" ]]; then
+    echo "[plug-and-play] Docker nÃ£o encontrado. Instalando Docker e Docker Compose..."
+    sudo apt update
+    sudo apt install -y docker.io docker-compose
+    sudo systemctl enable --now docker
+    sudo usermod -aG docker "$USER"
+    echo "[plug-and-play] Docker instalado. Reinicie o terminal para ativar o grupo docker e rode novamente este script."
+    exit 0
+  else
+    echo "[plug-and-play] Docker nÃ£o encontrado. Instale manualmente o Docker Desktop e o WSL no Windows."
+    exit 1
+  fi
+}
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
@@ -142,7 +208,6 @@ main() {
     usage
     exit 1
   fi
-
 
   ensure_docker
 
