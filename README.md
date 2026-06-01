@@ -1,330 +1,70 @@
+
 # QuimioAnalytics
 
-Plataforma de integração e enriquecimento de dados de metabolômica com pipeline ETL modular, banco PostgreSQL em camadas e ranqueamento probabilístico de candidatos.
+Plataforma para integração, enriquecimento e análise de dados laboratoriais de metabolômica, com ranking automático de compostos candidatos e visualização simplificada.
 
-Projeto Aplicado II · Ciência de Dados e Inteligência Artificial · SENAI Florianópolis · 2026/1
+---
 
-## 1. O que este projeto resolve
+## Visão Geral
+Organize e enriqueça dados laboratoriais de forma automática, integrando bases públicas e gerando ranking dos compostos mais prováveis para cada amostra. Ideal para equipes científicas e técnicas que buscam agilidade, rastreabilidade e confiabilidade operacional.
 
-O projeto organiza dados laboratoriais internos e integra bases químicas públicas para apoiar análise preditiva.
+## Principais Funcionalidades
+- Integração de dados laboratoriais e públicos
+- Ranking automático dos melhores candidatos por amostra
+- Enriquecimento externo sob demanda com PubChem, ChEBI, ChemSpider e ClassyFire
+- Dashboard e API para análise e consulta
 
-Objetivos principais:
+No fluxo da interface:
+- O upload executa ETL interno e ranking.
+- A consulta a bases externas é disparada depois, pelo botão da fonte na tela de Ranking.
 
-- Padronizar a ingestão de planilhas internas de identificação e abundância.
-- Produzir um ranking de candidatos probabilístico por feature e aduto.
-- Enriquecer compostos com PubChem, ChEBI e ChemSpider.
-- Disponibilizar estrutura confiável para análises, APIs e dashboards.
+## Como Começar
 
-## 2. Arquitetura do sistema
+### Usuários Linux ou WSL (Windows Subsystem for Linux)
+Siga para a seção Plug and Play abaixo.
 
-O banco PostgreSQL é organizado em três schemas:
+### Usuários Windows (sem WSL)
+1. Instale o [WSL](https://learn.microsoft.com/pt-br/windows/wsl/install) (Subsistema Linux para Windows)
+2. Abra o terminal Ubuntu (ou outra distribuição Linux) pelo menu iniciar
+3. Siga as instruções para Linux normalmente dentro do WSL
 
-| Schema | Papel |
-|--------|-------|
-| stg | Dados brutos e dados intermediários |
-| core | Modelo operacional normalizado para análise |
-| ref | Referências externas e metadados de enriquecimento |
 
-Fluxo macro:
+## Plug and Play
 
-Fontes internas e externas -> data/staging -> transformações -> core e ref -> ranking e análise
+Antes de rodar o Plug and Play, clone este repositório em sua máquina:
 
-## 3. Estrutura do repositório
+```sh
+git clone https://github.com/SEU_USUARIO/QuimioAnalytics.git
+cd QuimioAnalytics
+```
 
-Arquivos e pastas de maior interesse:
+O Plug and Play agora verifica e instala automaticamente o Docker e o Docker Compose em sistemas Linux. No Windows, basta garantir que o [Docker Desktop](https://www.docker.com/products/docker-desktop/) e o WSL estejam instalados.
 
-- [database](database): schema principal e migrations.
-- [scripts](scripts): código ETL e orquestração.
-- [scripts/run/run_pipeline_frontend.py](scripts/run/run_pipeline_frontend.py): orquestrador unificado.
-- [scripts/run/run_full_stack_etl.py](scripts/run/run_full_stack_etl.py): wrapper de compatibilidade para full stack.
-- [scripts/features/analytics.py](scripts/features/analytics.py): cálculo do ranking ranking de candidatos.
-- [docs](docs): documentação detalhada por tema.
-- [data](data): entradas brutas e artefatos intermediários do pipeline.
-- [runtime](runtime): logs e backups operacionais.
+Para rodar tudo automaticamente (inclusive dependências Python, banco, API e frontend):
 
-## 4. Pré-requisitos
+```sh
+chmod +x scripts/run/plug_and_play.sh
+./scripts/run/plug_and_play.sh up
+```
 
-- Linux, macOS ou WSL.
-- Python 3.10+ (recomendado 3.12).
-- Docker + Docker Compose.
-- Acesso à internet para ETLs externos.
+- Se o Docker não estiver instalado no Linux, o script fará a instalação e pedirá para reiniciar o terminal antes de rodar novamente.
+- No Windows, instale manualmente o Docker Desktop e o WSL antes de rodar o script.
+- Para parar ou ver logs, use:
+  - `./scripts/run/plug_and_play.sh down`
+  - `./scripts/run/plug_and_play.sh logs backend`
 
-Dependências Python principais:
+## Ranking de Candidatos
 
-- pandas
-- pyarrow
-- psycopg2-binary
-- requests
-- openpyxl
-- lxml
-- scrapy
+O sistema analisa os dados laboratoriais e gera automaticamente um ranking dos compostos mais prováveis para cada amostra, considerando critérios como massa, fragmentação e abundância. O resultado é salvo em um arquivo pronto para análise, facilitando a tomada de decisão com foco operacional.
 
-## 5. Início rápido
+Arquivo gerado: `data/staging/top_candidates.parquet`
 
-### 5.0 Primeira execução em uma chamada (recomendado)
+## Execução Manual (opcional)
+Para quem prefere instalar e rodar manualmente, siga as instruções detalhadas na documentação (`docs/`).
 
-Para máquina nova (Linux Debian/Ubuntu), use o script integrado:
+## Documentação e Suporte
+Consulte a pasta `docs/` para guias completos e dúvidas frequentes.
 
-	chmod +x scripts/run/install_system_prereqs.sh scripts/run/primeira_execucao.sh
-	./scripts/run/primeira_execucao.sh --db-pass <SUA_SENHA>
+---
 
-Com integração externa (PubChem, ChEBI e ChemSpider):
-
-	./scripts/run/primeira_execucao.sh --db-pass <SUA_SENHA> --with-external
-
-Manual completo passo a passo:
-
-- [docs/SETUP_PRIMEIRA_EXECUCAO.md](docs/SETUP_PRIMEIRA_EXECUCAO.md)
-
-### 5.1 Configuração manual mínima
-
-	python3 -m venv venv
-	source venv/bin/activate
-	pip install --upgrade pip
-	pip install pandas pyarrow psycopg2-binary requests openpyxl lxml scrapy
-	docker compose up -d
-	docker exec -i quimio_postgres psql -U quimio_user -d quimioanalytics < database/schema_postgresql_mvp_entrega2.sql
-
-Variáveis de ambiente:
-
-	export DB_HOST=localhost
-	export DB_PORT=5432
-	export DB_NAME=quimioanalytics
-	export DB_USER=quimio_user
-	export DB_PASS=<SUA_SENHA>
-
-### 5.2 Execução recomendada com orquestrador unificado
-
-Execução completa (setup + banco + pipeline + externas):
-
-	python3 scripts/run/run_full_stack_etl.py --db-pass QuimioAnalytics --skip-db-init --skip-deps
-
-Ou sem integrações externas (mais rápido):
-
-	python3 scripts/run/run_full_stack_etl.py --db-pass QuimioAnalytics --skip-db-init --skip-deps --no-external
-
-Simulação sem executar comandos:
-
-	python3 scripts/run/run_pipeline_frontend.py --full-stack --dry-run --json
-
-## 6. Formas de execução por cenário
-
-### Cenário A: laboratório ou novo ambiente (com integrações externas)
-
-Use full stack para preparar tudo e executar ETL completo com bases externas:
-
-	python3 scripts/run/run_full_stack_etl.py --db-pass QuimioAnalytics --skip-db-init --skip-deps
-
-### Cenário A-B: laboratório ou novo ambiente (sem integrações externas - mais rápido)
-
-Setup completo sem consultar bases públicas:
-
-	python3 scripts/run/run_full_stack_etl.py --db-pass QuimioAnalytics --skip-db-init --skip-deps --no-external
-
-### Cenário B: banco e venv já existentes (com externas)
-
-Rode somente ETL + ranking + integrações externas (padrão):
-
-	python3 scripts/run/run_pipeline_frontend.py --load-core
-
-### Cenário C: apenas ETL interno e ranking de candidatos
-
-Sem consultar bases externas:
-
-	python3 scripts/run/run_pipeline_frontend.py --load-core --no-external
-
-### Cenário D: entrada customizada de planilhas (com externas)
-
-	python3 scripts/run/run_pipeline_frontend.py \
-	  --identificacao /tmp/IDENTIFICACAO.xlsx \
-	  --abundancia /tmp/ABUND.xlsx \
-	  --compostos /tmp/Compostos_final.xlsx \
-	  --overwrite-inputs --load-core
-
-### Cenário E: apenas PubChem (não ChEBI ou ChemSpider)
-
-	python3 scripts/run/run_pipeline_frontend.py --load-core --run-external --sources pubchem
-
-## 7. Orquestradores e compatibilidade
-
-O projeto possui um ponto principal de execução:
-
-- [scripts/run/run_pipeline_frontend.py](scripts/run/run_pipeline_frontend.py)
-
-Wrapper de compatibilidade (recomendado para produção):
-
-- [scripts/run/run_full_stack_etl.py](scripts/run/run_full_stack_etl.py)
-  - Automáticamente inclui `--full-stack` e `--run-external` com PubChem, ChEBI e ChemSpider
-  - Pode ser desabilitado com `--no-external` para modo rápido
-  - Suporta customização de sources com `--run-external --sources fonte1 fonte2`
-
-## 8. Ranking ranking de candidatos
-
-Script principal do ranking:
-
-- [scripts/features/analytics.py](scripts/features/analytics.py)
-
-Resumo do método:
-
-1. Normalização dos componentes técnicos de score.
-2. Score base pela média entre massa, fragmentação e isótopo.
-3. Modulação pelo score do software normalizado.
-4. Ajuste por abundância e estabilidade entre replicatas.
-5. Softmax por feature_group.
-6. Seleção dos 5 melhores candidatos por grupo.
-
-Saída padrão:
-
-- [data/staging/top_candidates.parquet](data/staging/top_candidates.parquet)
-
-## 9. ETLs externos (PubChem, ChEBI, ChemSpider)
-
-O projeto integra automaticamente dados de três bases de referência química pública após o ranking ranking de candidatos.
-
-### 9.1 Execução com integrações externas
-
-**Opção A: Via wrapper full stack (recomendado)**
-
-O wrapper `run_full_stack_etl.py` agora inclui integrações externas **por padrão**:
-
-	python3 scripts/run/run_full_stack_etl.py --db-pass QuimioAnalytics --skip-db-init --skip-deps
-
-Isto equivale a:
-
-	python3 scripts/run/run_pipeline_frontend.py --full-stack --db-pass QuimioAnalytics --skip-db-init --skip-deps --run-external --sources pubchem chebi chemspider
-
-**Opção B: Desabilitar integrações externas**
-
-	python3 scripts/run/run_full_stack_etl.py --db-pass QuimioAnalytics --skip-db-init --skip-deps --no-external
-
-**Opção C: Customizar fontes**
-
-	python3 scripts/run/run_full_stack_etl.py --db-pass QuimioAnalytics --skip-db-init --skip-deps --run-external --sources pubchem chebi
-
-### 9.2 Fluxo de processamento (com externas)
-
-1. **Extract** → Leitura de planilhas xlsx (IDENTIFICACAO, ABUND, Compostos)
-2. **Transform** → Normalização e validação de dados
-3. **Load** → Persistência no schema stg e geração de artefatos em data/staging
-4. **Ranking ranking de candidatos** → Seleção de 10 melhores candidatos por feature_group
-5. **ETL Externo** (ativado com `--run-external`)
-   - Prepara entrada normalizada (candidates_external_input.csv)
-   - Consulta PubChem API para CIDs, propriedades, sinônimos
-   - Consulta ChEBI para compostos e ontologia
-   - Consulta ChemSpider para IDs complementares
-   - Carrega resultados em tabelas de referência (stg.pubchem_compound_raw, etc)
-
-### 9.3 Execução por fonte individual
-
-Se preferir rodar apenas uma base:
-
-- **PubChem**: `python3 scripts/run/run_etl_pubchem.py`
-- **ChEBI**: `python3 scripts/run/run_etl_chebi.py`
-- **ChemSpider**: `python3 scripts/run/run_etl_chemspider.py`
-
-Ou via orquestrador:
-
-	python3 scripts/run/run_pipeline_frontend.py --run-external --sources pubchem
-
-### 9.4 Tempo estimado
-
-- ETL Interno: ~12 segundos
-- Ranking: ~9 segundos
-- **ETL Externo: 20-120 minutos** (depende da quantidade de compostos e latência de rede)
-
-Acompanhe progresso em tempo real:
-
-	tail -f runtime/logs/*.log | grep "Processando\|Sucesso"
-
-### 9.5 Bases de dados integradas
-
-| Base | Cobertura | Implementação |
-|------|-----------|----------------|
-| PubChem | Compostos por nome, fórmula ou CID | REST API |
-| ChEBI | Ontologia e relações químicas | REST API + XML parsing |
-| ChemSpider | IDs complementares e propriedades | Web scraping com Scrapy |
-
-Documentação individual:
-
-- [docs/ETL_Bases_Publicas/PUBCHEM.md](docs/ETL_Bases_Publicas/PUBCHEM.md)
-- [docs/ETL_Bases_Publicas/ETL_CHEBI.md](docs/ETL_Bases_Publicas/ETL_CHEBI.md)
-- [docs/ETL_Bases_Publicas/CHEMSPIDER.md](docs/ETL_Bases_Publicas/CHEMSPIDER.md)
-
-## 10. Validação rápida
-
-Consultas SQL recomendadas após execução:
-
-	SELECT COUNT(*) AS stg_identification_row FROM stg.identification_row;
-	SELECT COUNT(*) AS stg_abundance_row FROM stg.abundance_row;
-	SELECT COUNT(*) AS stg_curated_catalog_row FROM stg.curated_catalog_row;
-
-	SELECT COUNT(*) AS stg_pubchem FROM stg.pubchem_compound_raw;
-	SELECT COUNT(*) AS stg_chebi FROM stg.chebi_compound_raw;
-	SELECT COUNT(*) AS stg_chemspider FROM stg.chemspider_compound_raw;
-
-	SELECT COUNT(*) AS core_feature FROM core.feature;
-	SELECT COUNT(*) AS core_candidate_identification FROM core.candidate_identification;
-
-Critério mínimo:
-
-- Dados internos carregados em stg.
-- ranking de candidatos gerado em data/staging.
-- Carga em core realizada quando load-core estiver ativo.
-
-## 11. Erros comuns e solução
-
-1. Porta 5432 ocupada
-- Sintoma: PostgreSQL não sobe.
-- Solução: liberar ou remapear porta no compose.
-
-2. DB_PASS ausente no modo full stack
-- Sintoma: execução interrompe no início.
-- Solução: exportar DB_PASS ou usar --db-pass.
-
-3. Falha de DNS no PubChem
-- Sintoma: erro de resolução de nome nas integrações externas.
-- Solução: repetir execução quando a rede estabilizar.
-
-4. ChemSpider sem resultados
-- Sintoma: zero linhas em stg.chemspider_compound_raw.
-- Solução: comportamento esperado para parte dos compostos (nem todos têm ID no ChemSpider).
-
-5. ETL Externo muito lento
-- Sintoma: processamento de milhares de compostos demorando horas.
-- Solução: esperado para 5000-10000+ compostos. Use `tail -f runtime/logs/*.log` para acompanhar progresso.
-
-6. "Arquivo ranking de candidatos não foi gerado"
-- Sintoma: data/staging/top_candidates.parquet não existe.
-- Solução: verificar se ETL interno rodou sem erros; validar dados em stg.identification_row.
-
-## 12. Documentação detalhada
-
-Leia o índice de documentação em [docs/README.md](docs/README.md).
-
-Guias importantes:
-
-- [docs/Database/SETUP_DATABASE.md](docs/Database/SETUP_DATABASE.md)
-- [docs/ETL_Bases_Publicas/PUBCHEM.md](docs/ETL_Bases_Publicas/PUBCHEM.md)
-- [docs/ETL_Bases_Publicas/ETL_CHEBI.md](docs/ETL_Bases_Publicas/ETL_CHEBI.md)
-- [docs/ETL_Bases_Publicas/CHEMSPIDER.md](docs/ETL_Bases_Publicas/CHEMSPIDER.md)
-- [docs/Modelagem_Lógica_e_Schema/Modelagem_logica_e_schema.md](docs/Modelagem_Lógica_e_Schema/Modelagem_logica_e_schema.md)
-
-## 13. Status do projeto
-
-- ETL interno e artefatos em data/staging operacionais.
-- Ranking ranking de candidatos em produção no pipeline.
-- Integração externa com PubChem, ChEBI e ChemSpider.
-- Runner unificado para front-end e full stack.
-
-## 14. Equipe
-
-| Membro | Frente principal |
-|--------|------------------|
-| Guilherme da Silva Anselmo | Modelagem PostgreSQL e DER |
-| Guilherme Zamboni Menegacio | ETL com Pandas |
-| Vinícius Joacir dos Anjos | Integração com bases públicas |
-| Samuel Silva de Rezende | Documentação e arquitetura |
-
-## 15. Licença
-
-Uso acadêmico interno. SENAI Florianópolis, 2026.
+Projeto acadêmico interno · SENAI Florianópolis · 2026

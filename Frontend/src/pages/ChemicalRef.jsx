@@ -41,6 +41,7 @@ function ChemicalRef() {
     { value: 'pubchem', label: 'PubChem', count: compounds.filter(c => (c.sources || []).includes('PubChem')).length },
     { value: 'chebi', label: 'ChEBI', count: compounds.filter(c => (c.sources || []).includes('ChEBI')).length },
     { value: 'chemspider', label: 'ChemSpider', count: compounds.filter(c => (c.sources || []).includes('ChemSpider')).length },
+    { value: 'classyfire', label: 'ClassyFire', count: compounds.filter(c => (c.sources || []).includes('ClassyFire')).length },
   ], [compounds])
 
   const filteredCompounds = compounds.filter(compound => {
@@ -56,14 +57,30 @@ function ChemicalRef() {
     return matchesSearch && matchesSource
   })
 
+  const prettyKey = (rawKey) => rawKey
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const groupedExternalRefs = (compound) => {
+    const refs = Array.isArray(compound.external_references) ? compound.external_references : []
+    return refs.reduce((acc, ref) => {
+      const source = ref?.source || 'Externa'
+      if (!acc[source]) acc[source] = []
+      acc[source].push(ref)
+      return acc
+    }, {})
+  }
+
   return (
     <div className="page-container">
       <header className="page-header">
         <h1 className="page-title">Referências Químicas</h1>
-        <p className="page-description">Banco integrado de compostos químicos de fontes externas</p>
+        <p className="page-description">Base integrada de compostos químicos para consulta operacional.</p>
       </header>
 
-      {isLoading && <p className="text-muted">Carregando compostos do backend...</p>}
+      {isLoading && <p className="text-muted">Carregando compostos...</p>}
       {error && <p className="text-muted">{error}</p>}
       
       {/* Estatísticas / Filtros */}
@@ -123,6 +140,12 @@ function ChemicalRef() {
                     <label>InChIKey</label>
                     <span className="inchikey">{compound.inchikey}</span>
                   </div>
+                  {compound.description && (
+                    <div className="detail-group full-width">
+                      <label>ClassyFire — Descrição</label>
+                      <span className="classyfire-desc">{compound.description}</span>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="tag-section">
@@ -140,6 +163,25 @@ function ChemicalRef() {
                 <div className="external-links">
                   <label>Identificadores Externos</label>
                   <div className="link-buttons">
+                    {(() => {
+                      const classyfireRef = Array.isArray(compound.external_references)
+                        ? compound.external_references.find(ref => String(ref?.source || '').toLowerCase() === 'classyfire')
+                        : null
+                      const classyfireId = classyfireRef?.external_id || ''
+
+                      return (
+                        classyfireId && (
+                          <a
+                            href={`http://classyfire.wishartlab.com/entities/${classyfireId}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="ext-link classyfire"
+                          >
+                            ClassyFire: {classyfireId} <ExternalLink size={14} />
+                          </a>
+                        )
+                      )
+                    })()}
                     {compound.pubchem_cid && (
                       <a 
                         href={`https://pubchem.ncbi.nlm.nih.gov/compound/${compound.pubchem_cid}`} 
@@ -162,6 +204,64 @@ function ChemicalRef() {
                     )}
                   </div>
                 </div>
+
+                {Array.isArray(compound.external_references) && compound.external_references.length > 0 && (
+                  <div className="external-data-panel">
+                    <label>Informações Externas Organizadas</label>
+                    <div className="external-groups-grid">
+                      {Object.entries(groupedExternalRefs(compound)).map(([sourceName, refs]) => (
+                        <article key={sourceName} className="external-source-card">
+                          <header className="external-source-header">
+                            <span className="external-source-name">{sourceName}</span>
+                            <span className="external-source-count">{refs.length} registro(s)</span>
+                          </header>
+
+                          <div className="external-source-body">
+                            {refs.map((ref, idx) => {
+                              const details = ref?.details && typeof ref.details === 'object' ? ref.details : {}
+                              const detailEntries = Object.entries(details).filter(([, value]) => String(value || '').trim() !== '')
+
+                              return (
+                                <div key={`${sourceName}-${idx}`} className="external-record">
+                                  <div className="external-record-main">
+                                    {ref.external_id && (
+                                      <span className="external-record-chip">ID: {ref.external_id}</span>
+                                    )}
+                                    {ref.standardized_name && (
+                                      <span className="external-record-name">{ref.standardized_name}</span>
+                                    )}
+                                  </div>
+
+                                  {(ref.chemical_class || ref.chemical_subclass) && (
+                                    <div className="external-record-taxonomy">
+                                      {ref.chemical_class && <span>Classe: {ref.chemical_class}</span>}
+                                      {ref.chemical_subclass && <span>Subclasse: {ref.chemical_subclass}</span>}
+                                    </div>
+                                  )}
+
+                                  {ref.description && (
+                                    <p className="external-record-description">{ref.description}</p>
+                                  )}
+
+                                  {detailEntries.length > 0 && (
+                                    <div className="external-details-grid">
+                                      {detailEntries.slice(0, 12).map(([key, value]) => (
+                                        <div key={key} className="external-detail-item">
+                                          <span className="external-detail-key">{prettyKey(key)}</span>
+                                          <span className="external-detail-value">{String(value)}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="compound-sources">

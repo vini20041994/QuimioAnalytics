@@ -7,15 +7,19 @@ Este diretório é o índice técnico do QuimioAnalytics. O ponto de entrada ger
 Se você está chegando agora:
 
 1. Leia [../README.md](../README.md).
-2. Siga para [Database/SETUP_DATABASE.md](Database/SETUP_DATABASE.md) se precisar preparar banco local.
+2. Siga para [Database/SETUP_DATABASE.md](Database/SETUP_DATABASE.md) se precisar preparar o banco local.
 3. Siga para os guias de ETL externo conforme a fonte de interesse.
+
+Observação operacional:
+- No fluxo da interface, o upload executa ETL interno e ranking.
+- O ETL externo é executado sob demanda, pela seleção da fonte na tela de Ranking.
 
 ## 2. Mapa da documentação
 
 | Área | Arquivo | Quando ler |
 |------|---------|------------|
-| Banco de dados | [Database/SETUP_DATABASE.md](Database/SETUP_DATABASE.md) | Setup inicial, reset local, troubleshooting do PostgreSQL |
-| PubChem | [ETL_Bases_Publicas/PUBCHEM.md](ETL_Bases_Publicas/PUBCHEM.md) | Operar pipeline PubChem ponta a ponta |
+| Banco de dados | [Database/SETUP_DATABASE.md](Database/SETUP_DATABASE.md) | Setup inicial, reset local e troubleshooting do PostgreSQL |
+| PubChem | [ETL_Bases_Publicas/PUBCHEM.md](ETL_Bases_Publicas/PUBCHEM.md) | Operar o pipeline PubChem ponta a ponta |
 | ChEBI | [ETL_Bases_Publicas/ETL_CHEBI.md](ETL_Bases_Publicas/ETL_CHEBI.md) | Operar pipeline ChEBI e transformações associadas |
 | ChemSpider | [ETL_Bases_Publicas/CHEMSPIDER.md](ETL_Bases_Publicas/CHEMSPIDER.md) | Operar extração e carga via scraping do ChemSpider |
 | Modelagem | [Modelagem_Lógica_e_Schema/Modelagem_logica_e_schema.md](Modelagem_Lógica_e_Schema/Modelagem_logica_e_schema.md) | Entender MER, schema físico e dicionário de dados |
@@ -65,4 +69,5 @@ Se você está chegando agora:
 
 - O orquestrador principal do projeto é [../scripts/run/run_pipeline_frontend.py](../scripts/run/run_pipeline_frontend.py).
 - O arquivo [../scripts/run/run_full_stack_etl.py](../scripts/run/run_full_stack_etl.py) permanece apenas para compatibilidade de comando.
+- O mapa organizado de runners está em [../scripts/run/README.md](../scripts/run/README.md).
 - Sempre que um fluxo novo for adicionado em scripts/run, atualize este índice e o README principal.

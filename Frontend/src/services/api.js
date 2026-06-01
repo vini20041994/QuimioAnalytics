@@ -18,16 +18,21 @@ function buildUrl(path, query = {}) {
 async function request(path, options = {}, query = {}) {
   const response = await fetch(buildUrl(path, query), options)
   if (!response.ok) {
-    let message = 'Falha na comunicacao com backend.'
+    let message = 'Falha na comunicação com o backend.'
+    let detail = ''
     try {
       const payload = await response.json()
       if (payload?.detail) {
-        message = payload.detail
+        detail = String(payload.detail)
+        message = detail
       }
     } catch {
       // keep default message
     }
-    throw new Error(message)
+    const error = new Error(message)
+    error.status = response.status
+    error.detail = detail
+    throw error
   }
 
   const contentType = response.headers.get('content-type') || ''
@@ -46,6 +51,13 @@ export const api = {
     return request('/ranking/features', {}, query)
   },
 
+  getRankingFeatureExternal(featureId, source) {
+    return request('/ranking/feature-external', {}, {
+      feature_id: featureId,
+      source,
+    })
+  },
+
   getCompounds(query = {}) {
     return request('/compounds', {}, query)
   },
@@ -58,10 +70,11 @@ export const api = {
     return buildUrl('/export/candidates.xlsx')
   },
 
-  async uploadFiles({ identification, abundance }) {
+  async uploadFiles({ identification, abundance, compounds }) {
     const formData = new FormData()
     formData.append('identification', identification)
     formData.append('abundance', abundance)
+    formData.append('compounds', compounds)
 
     const response = await fetch(buildUrl('/upload'), {
       method: 'POST',
@@ -70,15 +83,20 @@ export const api = {
 
     if (!response.ok) {
       let message = 'Falha no upload.'
+      let detail = ''
       try {
         const payload = await response.json()
         if (payload?.detail) {
-          message = payload.detail
+          detail = String(payload.detail)
+          message = detail
         }
       } catch {
         // keep fallback
       }
-      throw new Error(message)
+      const error = new Error(message)
+      error.status = response.status
+      error.detail = detail
+      throw error
     }
 
     return response.json()

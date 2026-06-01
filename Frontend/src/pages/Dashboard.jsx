@@ -15,19 +15,9 @@ function Dashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [updates, setUpdates] = useState([])
   
-  const [abundanceData, setAbundanceData] = useState([
-    { sample: 'Amostra 1', abundance: 45000 },
-    { sample: 'Amostra 2', abundance: 38000 },
-    { sample: 'Amostra 3', abundance: 52000 },
-    { sample: 'Amostra 4', abundance: 41000 },
-    { sample: 'Amostra 5', abundance: 48000 },
-  ])
+  const [abundanceData, setAbundanceData] = useState([])
   
-  const [sourceDistribution, setSourceDistribution] = useState([
-    { name: 'PubChem', value: 450, color: '#04BDA2' },
-    { name: 'ChEBI', value: 320, color: '#016FE1' },
-    { name: 'ChemSpider', value: 180, color: '#bd0404' },
-  ])
+  const [sourceDistribution, setSourceDistribution] = useState([])
   
   useEffect(() => {
     let active = true
@@ -44,22 +34,19 @@ function Dashboard() {
           externalSources: 0,
         })
 
-        if (Array.isArray(payload?.abundanceData) && payload.abundanceData.length > 0) {
-          setAbundanceData(payload.abundanceData)
-        }
+        setAbundanceData(Array.isArray(payload?.abundanceData) ? payload.abundanceData : [])
 
-        if (Array.isArray(payload?.sourceDistribution) && payload.sourceDistribution.length > 0) {
-          setSourceDistribution(payload.sourceDistribution)
-        }
+        setSourceDistribution(Array.isArray(payload?.sourceDistribution) ? payload.sourceDistribution : [])
 
-        if (Array.isArray(payload?.updates)) {
-          setUpdates(payload.updates)
-        }
+        setUpdates(Array.isArray(payload?.updates) ? payload.updates : [])
 
         setError('')
       } catch (err) {
         if (!active) return
-        setError(err.message || 'Falha ao carregar métricas do backend.')
+        setError(err.message || 'Falha ao carregar os indicadores operacionais.')
+        setAbundanceData([])
+        setSourceDistribution([])
+        setUpdates([])
       } finally {
         if (active) {
           setIsLoading(false)
@@ -77,11 +64,11 @@ function Dashboard() {
     <div className="dashboard-container">
       <header className="dashboard-header">
         <h1 className="dashboard-title">Dashboard Analítico</h1>
-        <p className="dashboard-subtitle">Visão geral dos dados integrados do QuimioAnalytics</p>
+        <p className="dashboard-subtitle">Painel operacional para acompanhamento de features, candidatos e enriquecimento externo.</p>
       </header>
 
-      {isLoading && <p className="text-muted">Carregando métricas do backend...</p>}
-      {error && <p className="text-muted">{error}</p>}
+      {isLoading && <p className="text-muted">Carregando indicadores operacionais...</p>}
+      {error && <p className="text-muted">Falha ao carregar o painel: {error}</p>}
       
       {/* Cards de Estatísticas */}
       <div className="stats-grid">
@@ -133,24 +120,28 @@ function Dashboard() {
         <div className="chart-card">
           <h2 className="chart-title">Abundância por Amostra</h2>
           <div className="chart-wrapper">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={abundanceData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#424242" vertical={false} />
-                <XAxis dataKey="sample" stroke="#737373" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#737373" fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip 
-                  cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} 
-                  contentStyle={{ 
-                    backgroundColor: '#111111', 
-                    border: '1px solid #424242',
-                    borderRadius: '8px',
-                    color: '#fff'
-                  }}
-                  itemStyle={{ color: '#04BDA2' }}
-                />
-                <Bar dataKey="abundance" fill="#04BDA2" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {abundanceData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={abundanceData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#424242" vertical={false} />
+                  <XAxis dataKey="sample" stroke="#737373" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#737373" fontSize={12} tickLine={false} axisLine={false} />
+                  <Tooltip 
+                    cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} 
+                    contentStyle={{ 
+                      backgroundColor: '#111111', 
+                      border: '1px solid #424242',
+                      borderRadius: '8px',
+                      color: '#fff'
+                    }}
+                    itemStyle={{ color: '#04BDA2' }}
+                  />
+                  <Bar dataKey="abundance" fill="#04BDA2" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-muted">Sem dados de abundância. Execute um novo upload para gerar este indicador.</p>
+            )}
           </div>
         </div>
 
@@ -158,32 +149,36 @@ function Dashboard() {
         <div className="chart-card">
           <h2 className="chart-title">Distribuição por Fonte</h2>
           <div className="chart-wrapper">
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={sourceDistribution}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={5}
-                  dataKey="value"
-                  label={{ fill: '#ffffff', fontSize: 12 }}
-                >
-                  {sourceDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#111111', 
-                    border: '1px solid #424242',
-                    borderRadius: '8px',
-                    color: '#fff'
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            {sourceDistribution.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={sourceDistribution}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={5}
+                    dataKey="value"
+                    label={{ fill: '#ffffff', fontSize: 12 }}
+                  >
+                    {sourceDistribution.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#111111', 
+                      border: '1px solid #424242',
+                      borderRadius: '8px',
+                      color: '#fff'
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-muted">Sem distribuição de fontes externas no momento.</p>
+            )}
           </div>
         </div>
 
@@ -204,15 +199,7 @@ function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {(updates.length > 0 ? updates : [
-                {
-                  batch: 'TOP5_RANKING_MERGE',
-                  type: 'Ranking',
-                  date: '2026-05-05 14:32',
-                  records: 6240,
-                  status: 'Completo',
-                },
-              ]).map((row, index) => (
+              {updates.length > 0 ? updates.map((row, index) => (
                 <tr key={`${row.batch}-${index}`}>
                   <td className="font-medium">{row.batch}</td>
                   <td><span className="badge badge-verde">{row.type}</span></td>
@@ -220,7 +207,11 @@ function Dashboard() {
                   <td>{Number(row.records || 0).toLocaleString('pt-BR')}</td>
                   <td><span className="badge badge-azul">{row.status || 'Completo'}</span></td>
                 </tr>
-              ))}
+              )) : (
+                <tr>
+                  <td colSpan={5} className="text-muted">Sem atualizações recentes. Realize um upload para iniciar novo ciclo.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
