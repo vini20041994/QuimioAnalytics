@@ -9,8 +9,9 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import psycopg2
 
-from scripts.config import STAGING_DIR
+from scripts.config import STAGING_DIR, get_db_params
 
 
 FINAL_COLUMNS = [
@@ -43,9 +44,6 @@ COMPOSTOS_EXPORT_COLUMNS = [
 
 SUPPORTED_EXTERNAL_SOURCES = ("pubchem", "chebi", "chemspider", "classyfire")
 ENRICHMENT_REPORT_FILE = "external_enrichment_report.json"
-ENRICHMENT_CSV_FILE = "candidates_external_input.csv"
-ENRICHMENT_PARQUET_FILE = "candidates_external_input.parquet"
-COMPOSTOS_TRUSTED_FILE = "compostos_trusted.parquet"
 
 
 def _norm_text(value: Any) -> str:
@@ -230,25 +228,143 @@ def _find_replicate_columns(df: pd.DataFrame) -> list[str]:
     return [col for col in df.columns if isinstance(col, str) and pattern.match(col)]
 
 
-def _load_parquet_or_empty(file_path: Path) -> pd.DataFrame:
-    if not file_path.exists():
-        return pd.DataFrame()
-    return pd.read_parquet(file_path)
+def _read_sql_dataframe(query: str, params: tuple[Any, ...] | None = None) -> pd.DataFrame:
+    db_params = get_db_params()
+    with psycopg2.connect(**db_params) as conn:
+        with conn.cursor() as cur:
+            cur.execute(query, params or ())
+            rows = cur.fetchall()
+            columns = [desc[0] for desc in cur.description]
+    return pd.DataFrame(rows, columns=columns)
+
+
+def _normalize_candidate_columns(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return pd.DataFrame(
+            columns=[
+                "Compound",
+                "original_id",
+                "Adducts",
+                "formula",
+                "score",
+                "fragment_score",
+                "mass_error_ppm",
+                "isotope_similarity",
+                "Link",
+                "Description",
+                "neutral_mass_da",
+                "mz",
+                "rt",
+                "media_abundancia",
+                "cv",
+                "execution_id",
+                "pipeline_version",
+                "ingestion_timestamp_utc",
+                "source_identificacao_file",
+                "source_abundancia_file",
+                "rank_group",
+                "is_tied",
+                "feature_group",
+            ]
+        )
+
+    rename_map = {
+        "compound": "Compound",
+        "adducts": "Adducts",
+        "link": "Link",
+        "description": "Description",
+        "candidate_rank_local": "rank_group",
+    }
+    normalized = df.rename(columns=rename_map).copy()
+
+    expected_cols = [
+        "Compound",
+        "original_id",
+        "Adducts",
+        "formula",
+        "score",
+        "fragment_score",
+        "mass_error_ppm",
+        "isotope_similarity",
+        "Link",
+        "Description",
+        "neutral_mass_da",
+        "mz",
+        "rt",
+        "media_abundancia",
+        "cv",
+        "execution_id",
+        "pipeline_version",
+        "ingestion_timestamp_utc",
+        "source_identificacao_file",
+        "source_abundancia_file",
+        "rank_group",
+        "is_tied",
+    ]
+    for col in expected_cols:
+        if col not in normalized.columns:
+            normalized[col] = pd.Series(dtype="object")
+
+    for col in ["Compound", "original_id", "Adducts", "formula", "Link", "Description"]:
+        series = normalized[col].astype("string").str.strip()
+        series = series.replace({"": pd.NA, "NaN": pd.NA, "nan": pd.NA, "NULL": pd.NA, "null": pd.NA})
+        normalized[col] = series
+
+    for col in [
+        "score",
+        "fragment_score",
+        "mass_error_ppm",
+        "isotope_similarity",
+        "neutral_mass_da",
+        "mz",
+        "rt",
+        "media_abundancia",
+        "cv",
+        "rank_group",
+    ]:
+        normalized[col] = pd.to_numeric(normalized[col], errors="coerce")
+
+    normalized["is_tied"] = normalized["is_tied"].fillna(False).astype(bool)
+    normalized = normalized[normalized["Compound"].notna() & normalized["score"].notna()].copy()
+
+    if "feature_group" not in normalized.columns:
+        normalized["feature_group"] = normalized["Compound"].fillna("") + "||" + normalized["Adducts"].fillna("")
+
+    return normalized
 
 
 def load_enrichment_dataframe() -> pd.DataFrame:
-    staging_dir = get_staging_dir()
-    parquet_path = staging_dir / ENRICHMENT_PARQUET_FILE
-    csv_path = staging_dir / ENRICHMENT_CSV_FILE
+    query = """
+        SELECT
+            ec.preferred_name AS match_name,
+            ec.inchikey AS match_inchikey,
+            ec.preferred_name AS standardized_name,
+            ec.external_accession AS external_id,
+            COALESCE(
+                ec.raw_payload ->> 'description',
+                ec.raw_payload ->> 'definition',
+                ec.preferred_name
+            ) AS description,
+            cls.chemical_class,
+            NULL::TEXT AS chemical_subclass,
+            es.source_name AS enrichment_source,
+            NULL::TEXT AS enrichment_queried_at,
+            ec.raw_payload::TEXT AS source_payload_json
+        FROM ref.external_compound ec
+        JOIN ref.external_source es
+          ON es.source_id = ec.source_id
+        LEFT JOIN LATERAL (
+            SELECT cc.class_name AS chemical_class
+            FROM ref.compound_class ccl
+            JOIN ref.chemical_class cc
+              ON cc.chemical_class_id = ccl.chemical_class_id
+            WHERE ccl.external_compound_id = ec.external_compound_id
+            ORDER BY cc.class_name
+            LIMIT 1
+        ) cls ON TRUE
+    """
+    enrichment = _read_sql_dataframe(query)
 
-    enrichment = _load_parquet_or_empty(parquet_path)
-    if enrichment.empty and csv_path.exists():
-        enrichment = pd.read_csv(csv_path)
-
-    if enrichment.empty:
-        return pd.DataFrame()
-
-    # Mantem colunas esperadas pelos payloads de referencia externa.
     expected_columns = [
         "match_name",
         "match_inchikey",
@@ -261,13 +377,6 @@ def load_enrichment_dataframe() -> pd.DataFrame:
         "enrichment_queried_at",
         "source_payload_json",
     ]
-
-    # Mapeia nomes comuns de entrada para as colunas internas.
-    rename_map = {
-        "compound_name": "match_name",
-        "inchikey": "match_inchikey",
-    }
-    enrichment = enrichment.rename(columns=rename_map)
 
     for col in expected_columns:
         if col not in enrichment.columns:
@@ -286,91 +395,83 @@ def load_enrichment_dataframe() -> pd.DataFrame:
 
 
 def load_compostos_trusted_dataframe() -> pd.DataFrame:
-    return _load_parquet_or_empty(get_staging_dir() / COMPOSTOS_TRUSTED_FILE)
+    query = """
+        SELECT
+            catalog_code,
+            compound_name,
+            solvent,
+            ionization_mode,
+            chemical_category,
+            metabolism_note,
+            pathway_note,
+            source_sheet
+        FROM ref.curated_catalog_entry
+    """
+    return _read_sql_dataframe(query)
 
 
 def load_candidates_dataframe() -> pd.DataFrame:
-    """Carrega todos os candidatos diretamente da tabela de identificação (stg.identification_row)."""
-    import psycopg2
-    from scripts.config import get_db_params
-    db_params = get_db_params()
+    """Carrega candidatos do ranking persistido no schema core."""
     query = """
         SELECT
-            compound_code AS Compound,
+            f.feature_code AS compound,
             source_compound_id AS original_id,
-            adducts AS Adducts,
+            ci.adducts AS adducts,
             molecular_formula AS formula,
-            score,
-            fragmentation_score AS fragment_score,
-            mass_error_ppm,
-            isotope_similarity,
-            link_url AS Link,
-            description AS Description,
-            neutral_mass_da,
-            mz,
-            retention_time_min AS rt
-        FROM stg.identification_row
+            ci.score,
+            ci.fragmentation_score AS fragment_score,
+            ci.mass_error_ppm,
+            ci.isotope_similarity,
+            ci.link_url AS link,
+            ci.description,
+            f.neutral_mass_da,
+            f.mz,
+            f.retention_time_min AS rt,
+            ci.abundance_mean AS media_abundancia,
+            ci.abundance_cv AS cv,
+            ib.batch_name AS execution_id,
+            NULL::TEXT AS pipeline_version,
+            ib.created_at AS ingestion_timestamp_utc,
+            NULL::TEXT AS source_identificacao_file,
+            NULL::TEXT AS source_abundancia_file,
+            ci.candidate_rank_local AS rank_group,
+            ci.is_tied
+        FROM core.candidate_identification ci
+        JOIN core.feature f
+          ON f.feature_id = ci.feature_id
+        JOIN core.ingestion_batch ib
+          ON ib.batch_id = f.batch_id
+        WHERE ci.deleted_at IS NULL
+          AND f.deleted_at IS NULL
     """
-    with psycopg2.connect(**db_params) as conn:
-        df = pd.read_sql(query, conn)
-
-    # Garante colunas mesmo se DataFrame vazio
-    expected_cols = [
-        "Compound", "original_id", "Adducts", "formula", "score", "fragment_score",
-        "mass_error_ppm", "isotope_similarity", "Link", "Description", "neutral_mass_da",
-        "mz", "rt"
-    ]
-    for col in expected_cols:
-        if col not in df.columns:
-            df[col] = pd.Series(dtype="object")
-
-    # Normalizacao defensiva: remove marcadores textuais de NaN e coercoes basicas.
-    for col in ["Compound", "original_id", "Adducts", "formula", "Link", "Description"]:
-        series = df[col].astype("string").str.strip()
-        series = series.replace({"": pd.NA, "NaN": pd.NA, "nan": pd.NA, "NULL": pd.NA, "null": pd.NA})
-        df[col] = series
-
-    for col in ["score", "fragment_score", "mass_error_ppm", "isotope_similarity", "neutral_mass_da", "mz", "rt"]:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-
-    # Mantem apenas candidatos com identificacao minima e score valido para o ranking.
-    df = df[df["Compound"].notna() & df["score"].notna()].copy()
-
-    # Adiciona colunas esperadas pelo ranking, se necessário
-    if "feature_group" not in df.columns:
-        df["feature_group"] = df["Compound"].fillna("") + "||" + df["Adducts"].fillna("")
-    if "rank_group" not in df.columns:
-        df["rank_group"] = 1
-    return df
+    return _normalize_candidate_columns(_read_sql_dataframe(query))
 
 
 
 def load_identificacao_trusted_dataframe() -> pd.DataFrame:
-    """Carrega a identificação diretamente do banco de dados (stg.identification_row)."""
-    import psycopg2
-    from scripts.config import get_db_params
-
-    db_params = get_db_params()
+    """Carrega a identificação persistida no schema core para enriquecer os payloads finais."""
     query = """
         SELECT
-            compound_code,
-            source_compound_id,
-            adducts,
-            molecular_formula,
-            score,
-            fragmentation_score,
-            mass_error_ppm,
-            isotope_similarity,
-            link_url,
-            description,
-            neutral_mass_da,
-            mz,
-            retention_time_min
-        FROM stg.identification_row
+            f.feature_code AS compound_code,
+            ci.source_compound_id,
+            ci.adducts,
+            ci.molecular_formula,
+            ci.score,
+            ci.fragmentation_score,
+            ci.mass_error_ppm,
+            ci.isotope_similarity,
+            ci.link_url,
+            ci.description,
+            f.neutral_mass_da,
+            f.mz,
+            f.retention_time_min
+        FROM core.candidate_identification ci
+        JOIN core.feature f
+          ON f.feature_id = ci.feature_id
+        WHERE ci.deleted_at IS NULL
+          AND f.deleted_at IS NULL
     """
-    with psycopg2.connect(**db_params) as conn:
-        df = pd.read_sql(query, conn)
-    return df
+    return _read_sql_dataframe(query)
 
 
 def load_enrichment_report() -> dict[str, Any]:
