@@ -7,20 +7,27 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import time
+import uuid
 from pathlib import Path
+from typing import Callable
 
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import Response
 
 from api.services.final_dataset_service import (
     SUPPORTED_EXTERNAL_SOURCES,
+    build_feature_candidates_payload,
     build_compounds_payload,
     build_dashboard_payload,
     build_feature_external_payload,
     build_ranking_payload,
+    build_ranking_summary_payload,
     build_export_dataset,
+    load_candidates_dataframe,
     load_enrichment_report,
     to_csv_bytes,
     to_excel_bytes,
@@ -32,6 +39,157 @@ RUN_EXTERNAL_ETL_SCRIPT = PROJECT_ROOT / "scripts" / "run" / "run_etl_candidates
 VENV_PYTHON = PROJECT_ROOT / ".venv" / "bin" / "python3"
 UPLOAD_LOCK_FILE = PROJECT_ROOT / "runtime" / "pipeline_upload.lock"
 PROCESS_INSTANCE_ID = f"{os.getpid()}-{int(time.time() * 1000)}"
+EXTERNAL_QUERY_STATUS_LOCK = threading.Lock()
+EXTERNAL_QUERY_JOBS: dict[str, dict[str, object]] = {}
+
+
+def _now_iso() -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def _build_query_status_payload(
+    *,
+    job_id: str,
+    feature_id: str,
+    source: str,
+    state: str,
+    step: str,
+    progress: int,
+) -> dict[str, object]:
+    return {
+        "job_id": job_id,
+        "feature_id": feature_id,
+        "source": source,
+        "state": state,
+        "step": step,
+        "progress": progress,
+        "items": [],
+        "fallback": None,
+        "error": "",
+        "started_at": _now_iso(),
+        "updated_at": _now_iso(),
+    }
+
+
+def _store_external_query_job(job_id: str, payload: dict[str, object]) -> None:
+    with EXTERNAL_QUERY_STATUS_LOCK:
+        payload["updated_at"] = _now_iso()
+        EXTERNAL_QUERY_JOBS[job_id] = payload
+
+
+def _get_external_query_job(job_id: str) -> dict[str, object] | None:
+    with EXTERNAL_QUERY_STATUS_LOCK:
+        payload = EXTERNAL_QUERY_JOBS.get(job_id)
+        return dict(payload) if payload else None
+
+
+def _update_external_query_job(job_id: str, **changes: object) -> dict[str, object]:
+    with EXTERNAL_QUERY_STATUS_LOCK:
+        payload = EXTERNAL_QUERY_JOBS.get(job_id)
+        if payload is None:
+            raise KeyError(job_id)
+        payload.update(changes)
+        payload["updated_at"] = _now_iso()
+        EXTERNAL_QUERY_JOBS[job_id] = payload
+        return dict(payload)
+
+
+def _set_query_phase(job_id: str, step: str, progress: int) -> None:
+    normalized_progress = max(0, min(progress, 100))
+    state = "completed" if normalized_progress >= 100 and step == "completed" else "running"
+    _update_external_query_job(job_id, state=state, step=step, progress=normalized_progress)
+
+
+def _validate_external_source(source: str) -> str:
+    normalized_source = source.strip().casefold()
+    if normalized_source not in SUPPORTED_EXTERNAL_SOURCES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Fonte externa inválida. Use uma destas opções: "
+                + ", ".join(SUPPORTED_EXTERNAL_SOURCES)
+            ),
+        )
+    return normalized_source
+
+
+def _run_feature_external_query(
+    feature_id: str,
+    source: str,
+    status_callback: Callable[[str, int], None] | None = None,
+) -> dict[str, object]:
+    if status_callback:
+        status_callback("checking_local_cache", 10)
+
+    items = build_feature_external_payload(feature_id=feature_id, source=source)
+    if items:
+        if status_callback:
+            status_callback("completed", 100)
+        return {"items": items}
+
+    if status_callback:
+        status_callback("running_external_etl", 35)
+    if status_callback:
+        fallback = _run_external_enrichment_for_source(
+            source,
+            feature_id=feature_id,
+            status_callback=status_callback,
+        )
+    else:
+        fallback = _run_external_enrichment_for_source(source, feature_id=feature_id)
+
+    if status_callback:
+        status_callback("reloading_results", 85)
+    refreshed_items = build_feature_external_payload(feature_id=feature_id, source=source)
+    if status_callback:
+        status_callback("completed", 100)
+    return {
+        "items": refreshed_items,
+        "fallback": fallback,
+    }
+
+
+def _run_external_query_job(job_id: str) -> None:
+    payload = _get_external_query_job(job_id)
+    if payload is None:
+        return
+
+    feature_id = str(payload["feature_id"])
+    source = str(payload["source"])
+
+    try:
+        result = _run_feature_external_query(
+            feature_id=feature_id,
+            source=source,
+            status_callback=lambda step, progress: _set_query_phase(job_id, step, progress),
+        )
+        _update_external_query_job(
+            job_id,
+            state="completed",
+            step="completed",
+            progress=100,
+            items=result.get("items", []),
+            fallback=result.get("fallback"),
+            error="",
+        )
+    except HTTPException as exc:
+        _update_external_query_job(
+            job_id,
+            state="failed",
+            step="failed",
+            error=str(exc.detail),
+        )
+    except (RuntimeError, ValueError, TypeError, KeyError, OSError) as exc:  # pragma: no cover  # noqa: BLE001
+        LOGGER.exception(
+            "external_query_job_unhandled_error",
+            extra={"job_id": job_id, "feature_id": feature_id, "source": source},
+        )
+        _update_external_query_job(
+            job_id,
+            state="failed",
+            step="failed",
+            error=str(exc) or "Falha inesperada ao consultar a base externa.",
+        )
 
 
 def _env_to_int(name: str, default: int) -> int:
@@ -67,6 +225,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(GZipMiddleware, minimum_size=1024)
+
 
 @app.get("/api/v1/health")
 def health() -> dict[str, str]:
@@ -83,8 +243,37 @@ def ranking_features(
     search: str | None = Query(default=None),
     class_name: str | None = Query(default=None),
     min_abundance: float | None = Query(default=None, ge=0),
+    candidate_limit: int | None = Query(default=None, ge=1, le=50),
+    include_candidates: bool = Query(default=True),
 ):
-    return {"items": build_ranking_payload(search=search, class_name=class_name, min_abundance=min_abundance)}
+    if not include_candidates:
+        return {
+            "items": build_ranking_summary_payload(
+                search=search,
+                class_name=class_name,
+                min_abundance=min_abundance,
+            )
+        }
+
+    return {
+        "items": build_ranking_payload(
+            search=search,
+            class_name=class_name,
+            min_abundance=min_abundance,
+            candidate_limit=candidate_limit,
+        )
+    }
+
+
+@app.get("/api/v1/ranking/feature-candidates")
+def ranking_feature_candidates(
+    feature_id: str = Query(..., min_length=1),
+):
+    items = build_feature_candidates_payload(feature_id=feature_id)
+    return {
+        "feature_id": feature_id,
+        "items": items,
+    }
 
 
 @app.get("/api/v1/ranking/feature-external")
@@ -92,26 +281,43 @@ def ranking_feature_external(
     feature_id: str = Query(..., min_length=1),
     source: str = Query(..., min_length=1),
 ):
-    normalized_source = source.strip().casefold()
-    if normalized_source not in SUPPORTED_EXTERNAL_SOURCES:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Fonte externa inválida. Use uma destas opções: "
-                + ", ".join(SUPPORTED_EXTERNAL_SOURCES)
-            ),
-        )
+    normalized_source = _validate_external_source(source)
+    return _run_feature_external_query(feature_id=feature_id, source=normalized_source)
 
-    items = build_feature_external_payload(feature_id=feature_id, source=normalized_source)
-    if items:
-        return {"items": items}
 
-    fallback = _run_external_enrichment_for_source(normalized_source)
-    refreshed_items = build_feature_external_payload(feature_id=feature_id, source=normalized_source)
-    return {
-        "items": refreshed_items,
-        "fallback": fallback,
-    }
+@app.post("/api/v1/ranking/feature-external/jobs")
+def start_ranking_feature_external_job(
+    feature_id: str = Query(..., min_length=1),
+    source: str = Query(..., min_length=1),
+):
+    normalized_source = _validate_external_source(source)
+    job_id = uuid.uuid4().hex
+    payload = _build_query_status_payload(
+        job_id=job_id,
+        feature_id=feature_id,
+        source=normalized_source,
+        state="queued",
+        step="queued",
+        progress=0,
+    )
+    _store_external_query_job(job_id, payload)
+
+    worker = threading.Thread(
+        target=_run_external_query_job,
+        args=(job_id,),
+        name=f"external-query-{job_id[:8]}",
+        daemon=True,
+    )
+    worker.start()
+    return payload
+
+
+@app.get("/api/v1/ranking/feature-external/jobs/{job_id}")
+def get_ranking_feature_external_job_status(job_id: str):
+    payload = _get_external_query_job(job_id)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Consulta externa não encontrada ou já expirada.")
+    return payload
 
 
 @app.get("/api/v1/compounds")
@@ -506,7 +712,40 @@ def _build_pipeline_env() -> dict[str, str]:
     return pipeline_env
 
 
-def _run_external_enrichment_for_source(source: str) -> dict[str, object]:
+def _build_feature_scoped_candidates_input(feature_id: str, work_dir: Path) -> tuple[Path, int]:
+    candidates = load_candidates_dataframe()
+    if candidates.empty:
+        raise HTTPException(
+            status_code=424,
+            detail=(
+                "Não foi possível executar ETL externo sob demanda porque não há candidatos "
+                "carregados no ranking. Execute upload e ranking antes da consulta externa."
+            ),
+        )
+
+    feature_key = feature_id.strip()
+    feature_series = candidates.get("feature_group")
+    if feature_series is None:
+        feature_series = candidates.get("Compound", "").astype(str) + "||" + candidates.get("Adducts", "").astype(str)
+
+    scoped_candidates = candidates[feature_series.astype(str) == feature_key].copy()
+    if scoped_candidates.empty:
+        raise HTTPException(
+            status_code=404,
+            detail="A feature selecionada não possui candidatos disponíveis para consulta externa.",
+        )
+
+    safe_feature = re.sub(r"[^a-zA-Z0-9_-]+", "_", feature_key)[:80] or "feature"
+    scoped_path = work_dir / f"feature_candidates_{safe_feature}.csv"
+    scoped_candidates.to_csv(scoped_path, index=False)
+    return scoped_path, int(len(scoped_candidates))
+
+
+def _run_external_enrichment_for_source(
+    source: str,
+    feature_id: str | None = None,
+    status_callback: Callable[[str, int], None] | None = None,
+) -> dict[str, object]:
     if _is_pipeline_running() or not _acquire_upload_lock():
         raise HTTPException(
             status_code=409,
@@ -518,28 +757,49 @@ def _run_external_enrichment_for_source(source: str) -> dict[str, object]:
 
     try:
         python_exec = _resolve_pipeline_python()
-        cmd = [
-            python_exec,
-            str(RUN_EXTERNAL_ETL_SCRIPT),
-            "--sources",
-            source,
-        ]
+        cmd_base = [python_exec, str(RUN_EXTERNAL_ETL_SCRIPT), "--sources", source]
+        scoped_candidates = None
 
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=False,
-            cwd=str(PROJECT_ROOT),
-            env=_build_pipeline_env(),
-            timeout=ON_DEMAND_EXTERNAL_TIMEOUT_SECONDS if ON_DEMAND_EXTERNAL_TIMEOUT_SECONDS > 0 else None,
-        )
+        if feature_id:
+            if status_callback:
+                status_callback("preparing_feature_candidates", 20)
+            with tempfile.TemporaryDirectory(prefix="quimio_external_feature_") as tmp_dir:
+                candidates_input_path, scoped_candidates = _build_feature_scoped_candidates_input(feature_id, Path(tmp_dir))
+                cmd = [*cmd_base, "--candidates-input", str(candidates_input_path)]
+
+                if status_callback:
+                    status_callback("executing_external_etl", 60)
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    cwd=str(PROJECT_ROOT),
+                    env=_build_pipeline_env(),
+                    timeout=ON_DEMAND_EXTERNAL_TIMEOUT_SECONDS if ON_DEMAND_EXTERNAL_TIMEOUT_SECONDS > 0 else None,
+                )
+        else:
+            cmd = cmd_base
+            if status_callback:
+                status_callback("executing_external_etl", 60)
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=str(PROJECT_ROOT),
+                env=_build_pipeline_env(),
+                timeout=ON_DEMAND_EXTERNAL_TIMEOUT_SECONDS if ON_DEMAND_EXTERNAL_TIMEOUT_SECONDS > 0 else None,
+            )
+
         if result.returncode != 0:
             error_text = (result.stderr or result.stdout or "Falha ao executar ETL externo.").strip()
             LOGGER.error(
                 "external_etl_on_demand_failed",
                 extra={
                     "source": source,
+                    "feature_id": feature_id,
+                    "scoped_candidates": scoped_candidates,
                     "returncode": result.returncode,
                     "stderr": (result.stderr or "")[-2000:],
                     "stdout": (result.stdout or "")[-2000:],
@@ -555,6 +815,8 @@ def _run_external_enrichment_for_source(source: str) -> dict[str, object]:
                 )
             raise HTTPException(status_code=502, detail=error_text)
 
+        if status_callback:
+            status_callback("loading_external_report", 75)
         report = load_enrichment_report()
         source_status = report.get("source_status") if isinstance(report, dict) else None
         normalized_sources = _normalize_external_sources(source_status)
@@ -565,6 +827,8 @@ def _run_external_enrichment_for_source(source: str) -> dict[str, object]:
         return {
             "triggered": True,
             "source": source,
+            "feature_id": feature_id,
+            "scoped_candidates": scoped_candidates,
             "status": selected or {},
         }
     except subprocess.TimeoutExpired as exc:

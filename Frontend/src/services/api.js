@@ -51,11 +51,28 @@ export const api = {
     return request('/ranking/features', {}, query)
   },
 
+  getRankingFeatureCandidates(featureId) {
+    return request('/ranking/feature-candidates', {}, {
+      feature_id: featureId,
+    })
+  },
+
   getRankingFeatureExternal(featureId, source) {
     return request('/ranking/feature-external', {}, {
       feature_id: featureId,
       source,
     })
+  },
+
+  startRankingFeatureExternalJob(featureId, source) {
+    return request('/ranking/feature-external/jobs', { method: 'POST' }, {
+      feature_id: featureId,
+      source,
+    })
+  },
+
+  getRankingFeatureExternalJobStatus(jobId) {
+    return request(`/ranking/feature-external/jobs/${jobId}`)
   },
 
   getCompounds(query = {}) {

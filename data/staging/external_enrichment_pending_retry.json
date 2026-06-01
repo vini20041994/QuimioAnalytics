@@ -1,0 +1,11 @@
+{
+  "queried_at": "2026-06-01T19:24:53.239051+00:00",
+  "pending_retry": [
+    {
+      "step": "ETL PubChem",
+      "ok": false,
+      "exit_code": 1,
+      "stderr": ""
+    }
+  ]
+}

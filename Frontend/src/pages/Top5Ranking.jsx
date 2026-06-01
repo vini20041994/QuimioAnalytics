@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Search, Download, Filter, TrendingUp, AlertCircle } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Search, Download, Filter, TrendingUp } from 'lucide-react'
 import { api } from '../services/api'
 import './Top5Ranking.css'
 
@@ -10,6 +10,41 @@ const EXTERNAL_SOURCES = [
   { value: 'classyfire', label: 'ClassyFire' },
 ]
 
+const FEATURES_PER_PAGE = 10
+const QUERY_POLL_INTERVAL_MS = 1200
+
+const QUERY_STEP_LABELS = {
+  queued: 'Consulta registrada. Aguardando início.',
+  checking_local_cache: 'Verificando resultados já disponíveis no banco.',
+  preparing_feature_candidates: 'Preparando candidatos da feature para consulta externa.',
+  running_external_etl: 'Acionando a rotina externa para a base selecionada.',
+  executing_external_etl: 'Consultando a base externa e aguardando resposta.',
+  loading_external_report: 'Carregando o relatório retornado pela consulta externa.',
+  reloading_results: 'Atualizando os resultados da feature com os dados externos.',
+  completed: 'Consulta finalizada.',
+  failed: 'A consulta externa falhou.',
+}
+
+const getStepMessage = (status) => {
+  if (!status) {
+    return ''
+  }
+  return QUERY_STEP_LABELS[status.step] || 'Processando consulta externa.'
+}
+
+const getStatusTone = (status) => {
+  if (!status) {
+    return 'idle'
+  }
+  if (status.state === 'failed') {
+    return 'failed'
+  }
+  if (status.state === 'completed') {
+    return 'completed'
+  }
+  return 'running'
+}
+
 function Top5Ranking() {
   const [searchTerm, setSearchTerm] = useState('')
   const [rankingData, setRankingData] = useState([])
@@ -18,17 +53,80 @@ function Top5Ranking() {
   const [externalRowsByQuery, setExternalRowsByQuery] = useState({})
   const [externalFallbackByQuery, setExternalFallbackByQuery] = useState({})
   const [externalLoadingByQuery, setExternalLoadingByQuery] = useState({})
+  const [externalStatusByQuery, setExternalStatusByQuery] = useState({})
   const [externalErrorByQuery, setExternalErrorByQuery] = useState({})
+  const [candidatesByFeature, setCandidatesByFeature] = useState({})
+  const [featureCandidatesLoading, setFeatureCandidatesLoading] = useState({})
+  const [featureCandidatesError, setFeatureCandidatesError] = useState({})
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const pollTimeoutsRef = useRef({})
 
   const getQueryKey = (featureId, source) => `${featureId}::${source}`
+
+  const clearQueryPolling = (queryKey) => {
+    const timeoutId = pollTimeoutsRef.current[queryKey]
+    if (timeoutId) {
+      window.clearTimeout(timeoutId)
+      delete pollTimeoutsRef.current[queryKey]
+    }
+  }
+
+  const scheduleQueryPolling = (queryKey, callback) => {
+    clearQueryPolling(queryKey)
+    pollTimeoutsRef.current[queryKey] = window.setTimeout(callback, QUERY_POLL_INTERVAL_MS)
+  }
 
   const formatNumber = (value, digits = 2) => {
     if (value === null || value === undefined || Number.isNaN(Number(value))) {
       return '-'
     }
     return Number(value).toFixed(digits)
+  }
+
+  const finalizeQuerySuccess = (queryKey, payload) => {
+    const rows = Array.isArray(payload?.items) ? payload.items : []
+    setExternalRowsByQuery((prev) => ({ ...prev, [queryKey]: rows }))
+    setExternalFallbackByQuery((prev) => ({ ...prev, [queryKey]: payload?.fallback || null }))
+    setExternalStatusByQuery((prev) => ({ ...prev, [queryKey]: payload }))
+    setExternalLoadingByQuery((prev) => ({ ...prev, [queryKey]: false }))
+  }
+
+  const pollExternalQuery = async (featureId, source, jobId) => {
+    const queryKey = getQueryKey(featureId, source)
+
+    try {
+      const statusPayload = await api.getRankingFeatureExternalJobStatus(jobId)
+      setExternalStatusByQuery((prev) => ({ ...prev, [queryKey]: statusPayload }))
+
+      if (statusPayload?.state === 'completed') {
+        clearQueryPolling(queryKey)
+        finalizeQuerySuccess(queryKey, statusPayload)
+        return
+      }
+
+      if (statusPayload?.state === 'failed') {
+        clearQueryPolling(queryKey)
+        setExternalLoadingByQuery((prev) => ({ ...prev, [queryKey]: false }))
+        setExternalErrorByQuery((prev) => ({
+          ...prev,
+          [queryKey]: statusPayload?.error || 'Falha ao consultar a base externa para esta feature.',
+        }))
+        return
+      }
+
+      scheduleQueryPolling(queryKey, () => {
+        void pollExternalQuery(featureId, source, jobId)
+      })
+    } catch (err) {
+      clearQueryPolling(queryKey)
+      setExternalLoadingByQuery((prev) => ({ ...prev, [queryKey]: false }))
+      setExternalErrorByQuery((prev) => ({
+        ...prev,
+        [queryKey]: err.message || 'Falha ao acompanhar o status da consulta externa.',
+      }))
+    }
   }
 
   const fetchExternalRows = async (featureId, source) => {
@@ -39,33 +137,77 @@ function Top5Ranking() {
       return
     }
 
+    clearQueryPolling(queryKey)
     setExternalLoadingByQuery((prev) => ({ ...prev, [queryKey]: true }))
     setExternalErrorByQuery((prev) => ({ ...prev, [queryKey]: '' }))
     setExternalFallbackByQuery((prev) => ({ ...prev, [queryKey]: null }))
+    setExternalStatusByQuery((prev) => ({ ...prev, [queryKey]: null }))
 
     try {
-      const payload = await api.getRankingFeatureExternal(featureId, source)
-      const rows = Array.isArray(payload?.items) ? payload.items : []
-      setExternalRowsByQuery((prev) => ({ ...prev, [queryKey]: rows }))
-      if (payload?.fallback?.triggered) {
-        setExternalFallbackByQuery((prev) => ({ ...prev, [queryKey]: payload.fallback }))
+      const startPayload = await api.startRankingFeatureExternalJob(featureId, source)
+      setExternalStatusByQuery((prev) => ({ ...prev, [queryKey]: startPayload }))
+
+      if (startPayload?.state === 'completed') {
+        finalizeQuerySuccess(queryKey, startPayload)
+        return
       }
+
+      if (startPayload?.state === 'failed') {
+        setExternalLoadingByQuery((prev) => ({ ...prev, [queryKey]: false }))
+        setExternalErrorByQuery((prev) => ({
+          ...prev,
+          [queryKey]: startPayload?.error || 'Falha ao consultar a base externa para esta feature.',
+        }))
+        return
+      }
+
+      scheduleQueryPolling(queryKey, () => {
+        void pollExternalQuery(featureId, source, startPayload.job_id)
+      })
     } catch (err) {
+      setExternalLoadingByQuery((prev) => ({ ...prev, [queryKey]: false }))
       setExternalErrorByQuery((prev) => ({
         ...prev,
         [queryKey]: err.message || 'Falha ao consultar a base externa para esta feature.',
       }))
-    } finally {
-      setExternalLoadingByQuery((prev) => ({ ...prev, [queryKey]: false }))
     }
   }
+
+  const fetchFeatureCandidates = async (featureId) => {
+    if (!featureId || candidatesByFeature[featureId]) {
+      return
+    }
+
+    setFeatureCandidatesLoading((prev) => ({ ...prev, [featureId]: true }))
+    setFeatureCandidatesError((prev) => ({ ...prev, [featureId]: '' }))
+
+    try {
+      const payload = await api.getRankingFeatureCandidates(featureId)
+      const items = Array.isArray(payload?.items) ? payload.items : []
+      setCandidatesByFeature((prev) => ({ ...prev, [featureId]: items }))
+    } catch (err) {
+      setFeatureCandidatesError((prev) => ({
+        ...prev,
+        [featureId]: err.message || 'Falha ao carregar os candidatos desta feature.',
+      }))
+    } finally {
+      setFeatureCandidatesLoading((prev) => ({ ...prev, [featureId]: false }))
+    }
+  }
+
+  useEffect(() => () => {
+    Object.values(pollTimeoutsRef.current).forEach((timeoutId) => {
+      window.clearTimeout(timeoutId)
+    })
+    pollTimeoutsRef.current = {}
+  }, [])
   
   useEffect(() => {
     let active = true
 
     const loadRanking = async () => {
       try {
-        const payload = await api.getRankingFeatures()
+        const payload = await api.getRankingFeatures({ include_candidates: false })
         if (!active) return
 
         const items = Array.isArray(payload?.items) ? payload.items : []
@@ -89,8 +231,23 @@ function Top5Ranking() {
 
   const filteredData = rankingData.filter(feature =>
     feature.feature_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    feature.candidates.some(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    String(feature.top_candidate_name || '').toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / FEATURES_PER_PAGE))
+  const safeCurrentPage = Math.min(currentPage, totalPages)
+  const pageStart = (safeCurrentPage - 1) * FEATURES_PER_PAGE
+  const paginatedData = filteredData.slice(pageStart, pageStart + FEATURES_PER_PAGE)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm])
+
+  useEffect(() => {
+    if (safeCurrentPage !== currentPage) {
+      setCurrentPage(safeCurrentPage)
+    }
+  }, [safeCurrentPage, currentPage])
 
   const handleExport = (format) => {
     const url = format === 'xlsx' ? api.getExportXlsxUrl() : api.getExportCsvUrl()
@@ -137,7 +294,7 @@ function Top5Ranking() {
       </section>
       
       <div className="features-list">
-        {filteredData.map((feature) => (
+        {paginatedData.map((feature) => (
           <article key={feature.feature_id} className="feature-card">
             <div className="feature-card-header">
               <div className="feature-meta">
@@ -148,7 +305,13 @@ function Top5Ranking() {
                 </div>
               </div>
               <button
-                onClick={() => setSelectedFeature(selectedFeature === feature.feature_id ? null : feature.feature_id)}
+                onClick={() => {
+                  const next = selectedFeature === feature.feature_id ? null : feature.feature_id
+                  setSelectedFeature(next)
+                  if (next === feature.feature_id) {
+                    void fetchFeatureCandidates(feature.feature_id)
+                  }
+                }}
                 className="btn btn-ghost"
               >
                 {selectedFeature === feature.feature_id ? 'Ocultar' : 'Ver Detalhes'}
@@ -157,6 +320,15 @@ function Top5Ranking() {
             
             {selectedFeature === feature.feature_id ? (
               <div className="feature-expanded-content">
+                {featureCandidatesLoading[feature.feature_id] && (
+                  <p className="text-muted">Carregando candidatos desta feature...</p>
+                )}
+
+                {featureCandidatesError[feature.feature_id] && (
+                  <p className="text-muted">{featureCandidatesError[feature.feature_id]}</p>
+                )}
+
+                {!featureCandidatesLoading[feature.feature_id] && !featureCandidatesError[feature.feature_id] && (
                 <div className="table-container">
                   <table className="ranking-table">
                     <thead>
@@ -177,7 +349,7 @@ function Top5Ranking() {
                       </tr>
                     </thead>
                     <tbody>
-                      {feature.candidates.map((candidate, index) => (
+                      {(candidatesByFeature[feature.feature_id] || []).map((candidate, index) => (
                         <tr key={`${feature.feature_id}-${candidate.rank}-${candidate.name}-${index}`}>
                           <td>
                             <div className="rank-cell">
@@ -208,6 +380,7 @@ function Top5Ranking() {
                     </tbody>
                   </table>
                 </div>
+                )}
 
                 <section className="external-query-panel">
                   <div className="external-query-header">
@@ -233,28 +406,50 @@ function Top5Ranking() {
                     const queryKey = getQueryKey(feature.feature_id, source)
                     const isQueryLoading = !!externalLoadingByQuery[queryKey]
                     const queryError = externalErrorByQuery[queryKey]
+                    const queryStatus = externalStatusByQuery[queryKey]
                     const rows = externalRowsByQuery[queryKey] || []
                     const fallbackInfo = externalFallbackByQuery[queryKey]
-
-                    if (isQueryLoading) {
-                      return <p className="text-muted">Consultando a base externa selecionada...</p>
-                    }
-
-                    if (queryError) {
-                      return <p className="text-muted">{queryError}</p>
-                    }
-
-                    if (rows.length === 0) {
-                      return <p className="text-muted">Nenhum registro encontrado nessa base para esta feature.</p>
-                    }
+                    const statusTone = getStatusTone(queryStatus)
 
                     return (
                       <>
+                        {queryStatus && (
+                          <div className={`external-status-card status-${statusTone}`}>
+                            <div className="external-status-meta">
+                              <div>
+                                <strong>Status da consulta</strong>
+                                <p>{getStepMessage(queryStatus)}</p>
+                              </div>
+                              <span className="external-status-progress">{Math.max(0, Math.min(Number(queryStatus.progress || 0), 100))}%</span>
+                            </div>
+                            <div className="external-status-bar" aria-hidden="true">
+                              <div
+                                className={`external-status-fill status-${statusTone}`}
+                                style={{ width: `${Math.max(0, Math.min(Number(queryStatus.progress || 0), 100))}%` }}
+                              />
+                            </div>
+                            <div className="external-status-caption">
+                              <span>Feature: {feature.feature_id}</span>
+                              <span>Base: {EXTERNAL_SOURCES.find((item) => item.value === source)?.label || source}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {isQueryLoading && <p className="text-muted">A consulta está em andamento. O status é atualizado automaticamente.</p>}
+
+                        {queryError && <p className="text-muted">{queryError}</p>}
+
                         {fallbackInfo?.triggered && (
                           <p className="text-muted">
                             Não havia registros locais. O sistema executou o ETL sob demanda para a fonte selecionada e recarregou os resultados.
                           </p>
                         )}
+
+                        {!isQueryLoading && !queryError && rows.length === 0 && (
+                          <p className="text-muted">Nenhum registro encontrado nessa base para esta feature.</p>
+                        )}
+
+                        {rows.length > 0 && (
                         <div className="table-container external-table-container">
                           <table className="ranking-table external-ranking-table">
                           <thead>
@@ -297,17 +492,49 @@ function Top5Ranking() {
                           </tbody>
                           </table>
                         </div>
+                        )}
                       </>
                     )
                   })()}
                 </section>
               </div>
             ) : (
-              <p className="text-muted">{feature.candidates.length} candidatos ranqueados. Clique em "Ver Detalhes" para abrir.</p>
+              <p className="text-muted">{feature.candidate_count || 0} candidatos ranqueados. Clique em "Ver Detalhes" para abrir.</p>
             )}
           </article>
         ))}
       </div>
+
+      {filteredData.length > 0 && (
+        <nav className="pagination" aria-label="Paginação do ranking">
+          <div className="pagination-summary">
+            <span>
+              Exibindo {pageStart + 1}-{Math.min(pageStart + FEATURES_PER_PAGE, filteredData.length)} de {filteredData.length} features
+            </span>
+            <span>
+              Página {safeCurrentPage} de {totalPages}
+            </span>
+          </div>
+          <div className="pagination-actions">
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+              disabled={safeCurrentPage === 1}
+            >
+              Anterior
+            </button>
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+              disabled={safeCurrentPage === totalPages}
+            >
+              Próxima
+            </button>
+          </div>
+        </nav>
+      )}
 
       {filteredData.length === 0 && (
         <div className="empty-state">

@@ -649,7 +649,32 @@ def build_dashboard_payload() -> dict[str, Any]:
     external_sources = 0
 
     abundance = []
-    if not candidates.empty:
+    abundance_query = """
+        SELECT
+            r.replicate_code AS sample,
+            SUM(am.abundance_value) AS abundance
+        FROM core.abundance_measurement am
+        JOIN core.feature f
+          ON f.feature_id = am.feature_id
+        JOIN core.replicate r
+          ON r.replicate_id = am.replicate_id
+        JOIN core.sample_group sg
+          ON sg.sample_group_id = r.sample_group_id
+        WHERE f.deleted_at IS NULL
+        GROUP BY sg.group_code, r.replicate_code, r.replicate_order
+        ORDER BY sg.group_code, r.replicate_order NULLS LAST, r.replicate_code
+    """
+    abundance_df = _read_sql_dataframe(abundance_query)
+    if not abundance_df.empty:
+        abundance = [
+            {
+                "sample": _safe_text(row.get("sample")),
+                "abundance": float(row.get("abundance") or 0.0),
+            }
+            for _, row in abundance_df.iterrows()
+            if _safe_text(row.get("sample"))
+        ]
+    elif not candidates.empty:
         replicate_cols = _find_replicate_columns(candidates)
         if replicate_cols:
             sums = candidates[replicate_cols].apply(pd.to_numeric, errors="coerce").sum(axis=0).sort_values(ascending=False)
@@ -689,7 +714,12 @@ def build_dashboard_payload() -> dict[str, Any]:
     }
 
 
-def build_ranking_payload(search: str | None = None, class_name: str | None = None, min_abundance: float | None = None) -> list[dict[str, Any]]:
+def build_ranking_payload(
+    search: str | None = None,
+    class_name: str | None = None,
+    min_abundance: float | None = None,
+    candidate_limit: int | None = None,
+) -> list[dict[str, Any]]:
     candidates = load_candidates_dataframe()
     if candidates.empty:
         return []
@@ -712,7 +742,9 @@ def build_ranking_payload(search: str | None = None, class_name: str | None = No
     ident_df = load_identificacao_trusted_dataframe()
     ident_by_id, ident_by_compound = _index_identification_rows(ident_df)
 
-    final_df = build_final_dataset()
+    final_df = pd.DataFrame()
+    if class_name:
+        final_df = build_final_dataset()
     if class_name and not final_df.empty:
         selected = final_df[final_df["Classe geral"].astype(str).str.casefold().str.contains(class_name.casefold(), na=False)]
         valid_ids = set(selected["Composto ID"].astype(str))
@@ -722,6 +754,8 @@ def build_ranking_payload(search: str | None = None, class_name: str | None = No
     grouped_payload: list[dict[str, Any]] = []
     for feature_group, group in working.groupby("feature_group", dropna=False, sort=False):
         ordered = group.sort_values(["rank_group", "score"], ascending=[True, False], kind="stable")
+        if candidate_limit is not None:
+            ordered = ordered.head(candidate_limit)
         candidates_payload = []
         for _, row in ordered.iterrows():
             row_compound_id = _safe_text(row.get("original_id") or row.get("Compound ID"))
@@ -795,6 +829,137 @@ def build_ranking_payload(search: str | None = None, class_name: str | None = No
         )
 
     return grouped_payload
+
+
+def build_ranking_summary_payload(
+    search: str | None = None,
+    class_name: str | None = None,
+    min_abundance: float | None = None,
+) -> list[dict[str, Any]]:
+    candidates = load_candidates_dataframe()
+    if candidates.empty:
+        return []
+
+    working = candidates.copy()
+
+    if search:
+        term = search.strip().casefold()
+        mask = (
+            working.get("feature_group", pd.Series("", index=working.index)).astype(str).str.casefold().str.contains(term)
+            | working.get("Compound", pd.Series("", index=working.index)).astype(str).str.casefold().str.contains(term)
+        )
+        working = working[mask]
+
+    if min_abundance is not None and "media_abundancia" in working.columns:
+        working = working[pd.to_numeric(working["media_abundancia"], errors="coerce") >= float(min_abundance)]
+
+    final_df = pd.DataFrame()
+    if class_name:
+        final_df = build_final_dataset()
+    if class_name and not final_df.empty:
+        selected = final_df[final_df["Classe geral"].astype(str).str.casefold().str.contains(class_name.casefold(), na=False)]
+        valid_ids = set(selected["Composto ID"].astype(str))
+        working = working[working["original_id"].astype(str).isin(valid_ids)]
+
+    grouped_payload: list[dict[str, Any]] = []
+    for feature_group, group in working.groupby("feature_group", dropna=False, sort=False):
+        ordered = group.sort_values(["rank_group", "score"], ascending=[True, False], kind="stable")
+        sample_row = ordered.iloc[0]
+        feature_mz = _to_float(sample_row.get("mz"))
+        feature_rt = _to_float(sample_row.get("rt"))
+        top_name = _safe_text(sample_row.get("Compound"))
+
+        grouped_payload.append(
+            {
+                "feature_id": str(feature_group),
+                "mz": feature_mz if feature_mz is not None else 0.0,
+                "rt": feature_rt if feature_rt is not None else 0.0,
+                "candidate_count": int(len(group.index)),
+                "top_candidate_name": top_name,
+            }
+        )
+
+    return grouped_payload
+
+
+def build_feature_candidates_payload(feature_id: str) -> list[dict[str, Any]]:
+    feature_key = _safe_text(feature_id)
+    if not feature_key:
+        return []
+
+    candidates = load_candidates_dataframe()
+    if candidates.empty:
+        return []
+
+    feature_rows = candidates[
+        candidates.get("feature_group", pd.Series("", index=candidates.index)).astype(str) == feature_key
+    ]
+    if feature_rows.empty:
+        return []
+
+    enrichment = load_enrichment_dataframe()
+    refs_by_name, refs_by_inchikey = _index_external_references(enrichment)
+    ident_df = load_identificacao_trusted_dataframe()
+    ident_by_id, ident_by_compound = _index_identification_rows(ident_df)
+
+    ordered = feature_rows.sort_values(["rank_group", "score"], ascending=[True, False], kind="stable")
+    payload: list[dict[str, Any]] = []
+    for _, row in ordered.iterrows():
+        row_compound_id = _safe_text(row.get("original_id") or row.get("Compound ID"))
+        row_compound_code = _safe_text(row.get("Compound"))
+        ident_row = (
+            ident_by_id.get(_norm_text(row_compound_id))
+            or ident_by_compound.get(_norm_text(row_compound_code))
+            or {}
+        )
+
+        key_name = _norm_text(row.get("Compound"))
+        key_inchikey = _norm_text(row.get("InChIKey") or row.get("inchikey"))
+
+        refs = []
+        refs.extend(refs_by_name.get(key_name, []))
+        refs.extend(refs_by_inchikey.get(key_inchikey, []))
+
+        first_ref = refs[0] if refs else {}
+        first_details = first_ref.get("details") if isinstance(first_ref.get("details"), dict) else {}
+        first_external_id = _safe_text(first_ref.get("external_id"))
+
+        _mass_error_ppm = _to_float(pick_ident_first(ident_row, row, "mass_error_ppm", "mass_error_ppm", row.get("mass_error")))
+        _mass_error_abs_ppm = abs(_mass_error_ppm) if _mass_error_ppm is not None else None
+
+        payload.append(
+            {
+                "rank": int(row.get("rank_group", 0) or 0),
+                "name": str(row.get("Compound", "")),
+                "compound_id": _safe_text(pick_ident_first(ident_row, row, "source_compound_id", "original_id", row.get("Compound ID"))),
+                "formula": _safe_text(pick_ident_first(ident_row, row, "molecular_formula", "formula")),
+                "score": _to_float(pick_ident_first(ident_row, row, "score", "score", row.get("score_original"))),
+                "fragmentation": _to_float(pick_ident_first(ident_row, row, "fragmentation_score", "fragment_score", row.get("fragmentation_score"))),
+                "fragmentation_score": _to_float(pick_ident_first(ident_row, row, "fragmentation_score", "fragment_score", row.get("fragmentation_score"))),
+                "mass_error_ppm": _mass_error_ppm,
+                "mass_error_abs_ppm": _mass_error_abs_ppm,
+                "isotope_similarity": _to_float(pick_ident_first(ident_row, row, "isotope_similarity", "isotope_similarity")),
+                "link": _safe_text(pick_ident_first(ident_row, row, "link_url", "Link"))
+                    or _build_external_link(str(first_ref.get("source") or ""), first_external_id, first_details),
+                "description": _safe_text(pick_ident_first(ident_row, row, "description", "Description"))
+                    or _safe_text(first_ref.get("description"))
+                    or _safe_text(first_details.get("description"))
+                    or _safe_text(first_details.get("definition"))
+                    or _safe_text(first_details.get("pubchem_description")),
+                "neutral_mass_da": _to_float(pick_ident_first(ident_row, row, "neutral_mass_da", "neutral_mass", row.get("neutral_mass_da"))),
+                "mz": _to_float(pick_ident_first(ident_row, row, "mz", "mz")),
+                "retention_time_min": _to_float(pick_ident_first(ident_row, row, "retention_time_min", "retention_time_min", row.get("rt"))),
+                "identification": {
+                    "adducts": _safe_text(pick_ident_first(ident_row, row, "adducts", "Adducts")),
+                    "identifications": _safe_text(row.get("Identifications")),
+                    "chrom_peak_width_min": _to_float(row.get("Chromatographic peak width (min)")),
+                    "neutral_mass_abund": _to_float(row.get("neutral_mass_abund")),
+                    "source_identificacao_file": _safe_text(row.get("source_identificacao_file")),
+                },
+            }
+        )
+
+    return payload
 
 
 def build_feature_external_payload(feature_id: str, source: str) -> list[dict[str, Any]]:

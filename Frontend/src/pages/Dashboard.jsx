@@ -118,7 +118,7 @@ function Dashboard() {
         
         {/* Gráfico de Abundância */}
         <div className="chart-card">
-          <h2 className="chart-title">Abundância por Amostra</h2>
+          <h2 className="chart-title">Abundância Bruta por Réplica</h2>
           <div className="chart-wrapper">
             {abundanceData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
@@ -140,7 +140,7 @@ function Dashboard() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-muted">Sem dados de abundância. Execute um novo upload para gerar este indicador.</p>
+              <p className="text-muted">Sem dados brutos de abundância por réplica. Execute um novo upload para gerar este indicador.</p>
             )}
           </div>
         </div>
