@@ -11,6 +11,11 @@
   align-items: center;
 }
 
+.export-actions {
+  display: flex;
+  gap: 10px;
+}
+
 .page-title {
   font-size: 1.875rem;
   font-weight: 700;
@@ -101,6 +106,73 @@
 /* Tabela de Ranking */
 .table-container {
   overflow-x: auto;
+}
+
+.feature-expanded-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.external-query-panel {
+  border: 1px solid var(--cinza-dark);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.01);
+  padding: 14px;
+}
+
+.external-query-header h4 {
+  color: var(--branco-text);
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.external-query-header p {
+  margin: 6px 0 0 0;
+  color: var(--cinza-muted);
+  font-size: 0.8125rem;
+}
+
+.external-source-actions {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.source-query-btn {
+  padding: 8px 12px;
+}
+
+.source-query-btn.active {
+  border-color: var(--azul-primary);
+  color: var(--azul-primary);
+}
+
+.external-table-container {
+  margin-top: 12px;
+}
+
+.external-ranking-table th,
+.external-ranking-table td {
+  white-space: nowrap;
+}
+
+.external-description-cell {
+  max-width: 320px;
+  white-space: normal !important;
+  line-height: 1.4;
+  color: var(--cinza-muted);
+}
+
+.external-link-cell {
+  color: var(--azul-primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.external-link-cell:hover {
+  text-decoration: underline;
 }
 
 .ranking-table {
@@ -232,4 +304,25 @@
 
 .input-field::placeholder {
   color: var(--cinza-muted);
+}
+
+@media (max-width: 768px) {
+  .ranking-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .export-actions {
+    width: 100%;
+  }
+
+  .export-actions .btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .external-description-cell {
+    max-width: 220px;
+  }
 }

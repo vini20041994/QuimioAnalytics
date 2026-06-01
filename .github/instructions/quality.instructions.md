@@ -8,6 +8,7 @@ applyTo:
   - "fron_test/src/**/*.js"
 ---
 # Regras de Qualidade
+> Consulte também as diretrizes gerais em .github/copilot-instructions.md para validação de sugestões, alternativas, simplicidade e documentação.
 
 - Prefira unidades pequenas, legíveis e com nomes claros a funções densas e multipropósito.
 - Mantenha validação, logging e tratamento de erro explícitos.

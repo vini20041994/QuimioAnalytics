@@ -1,0 +1,8 @@
+{
+  "rows_received": 37772,
+  "rows_output": 37771,
+  "rows_rejected": 1,
+  "loss_reasons": {
+    "missing_isotope_similarity": 1
+  }
+}

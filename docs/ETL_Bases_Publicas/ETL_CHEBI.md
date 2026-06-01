@@ -24,7 +24,7 @@ Use ChEBI quando você precisa:
 
 Instalação rápida:
 
-    source venv/bin/activate
+    source .venv/bin/activate
     pip install pandas pyarrow requests psycopg2-binary openpyxl
 
 ## 4. Execução recomendada
@@ -117,5 +117,5 @@ Também existem colunas de texto para leitura direta no SQL (sufixo _text).
 
 3. Dependências ausentes
 
-    source venv/bin/activate
+    source .venv/bin/activate
     pip install pandas pyarrow requests psycopg2-binary openpyxl

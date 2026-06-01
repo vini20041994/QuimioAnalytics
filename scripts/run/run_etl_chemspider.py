@@ -13,11 +13,13 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
-VENV_PYTHON = PROJECT_ROOT / "venv" / "bin" / "python3"
+VENV_PYTHON = PROJECT_ROOT / ".venv" / "bin" / "python3"
 
 
 def _python_exec():
-    return str(VENV_PYTHON if VENV_PYTHON.exists() else Path(sys.executable))
+    if VENV_PYTHON.exists():
+        return str(VENV_PYTHON)
+    return str(Path(sys.executable))
 
 
 def run_step(cmd, step_name):

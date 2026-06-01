@@ -1,6 +1,53 @@
-version: '3.8'
-
 services:
+  backend:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    image: quimioanalytics-backend
+    container_name: quimio_backend
+    working_dir: /app
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      DB_HOST: ${BACKEND_DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-quimioanalytics}
+      DB_USER: ${DB_USER:-quimio_user}
+      DB_PASS: ${DB_PASS}
+    volumes:
+      - ./:/app
+    command: python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=5)"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    container_name: quimio_frontend
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      VITE_API_BASE_URL: "http://localhost:${BACKEND_PORT:-8000}"
+    volumes:
+      - ./Frontend:/app
+      - /app/node_modules
+    command: sh -c "npm ci --no-audit --no-fund && node ./node_modules/vite/bin/vite.js --host 0.0.0.0 --port 5173"
+    depends_on:
+      backend:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   postgres:
     image: postgres:15-alpine
     container_name: quimio_postgres

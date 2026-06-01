@@ -16,6 +16,19 @@
   color: var(--cinza-muted);
 }
 
+.processing-status {
+  background: rgba(1, 111, 225, 0.08);
+  border: 1px solid rgba(1, 111, 225, 0.25);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: var(--branco-text);
+  font-size: 0.9rem;
+}
+
+.processing-status strong {
+  color: var(--azul-primary);
+}
+
 /* Alert Card */
 .alert-card {
   display: flex;
@@ -28,6 +41,25 @@
 .alert-card.info {
   background-color: rgba(1, 111, 225, 0.1);
   border-color: rgba(1, 111, 225, 0.3);
+}
+
+.alert-card.warning-processing {
+  background-color: rgba(230, 140, 0, 0.1);
+  border-color: rgba(230, 140, 0, 0.4);
+  animation: pulse-border 2s ease-in-out infinite;
+}
+
+.alert-card.warning-processing .alert-icon { color: #e68c00; }
+.alert-card.warning-processing .alert-content h3 { color: #e68c00; }
+.alert-card.warning-processing .alert-content p {
+  color: var(--cinza-muted);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+@keyframes pulse-border {
+  0%, 100% { border-color: rgba(230, 140, 0, 0.4); }
+  50%       { border-color: rgba(230, 140, 0, 0.9); }
 }
 
 .alert-icon { color: var(--azul-primary); }
@@ -106,6 +138,12 @@
 
 .btn.large { padding: 14px 40px; font-size: 1.125rem; }
 
+.btn.disabled,
+.btn[aria-disabled='true'] {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 /* Status Display */
 .status-card {
   padding: 24px;
@@ -115,7 +153,13 @@
 }
 
 .status-card.success { background: rgba(4, 189, 162, 0.1); border-color: rgba(4, 189, 162, 0.3); }
+.status-card.warning { background: rgba(230, 140, 0, 0.1); border-color: rgba(230, 140, 0, 0.35); }
 .status-card.error { background: rgba(189, 4, 4, 0.1); border-color: rgba(189, 4, 4, 0.3); }
+
+.status-card:focus {
+  outline: 2px solid var(--azul-primary);
+  outline-offset: 2px;
+}
 
 .status-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .status-header h3 { margin: 0; }
@@ -125,6 +169,38 @@
   background: var(--preto-pure);
   border-radius: 8px;
   padding: 16px;
+}
+
+.source-status-box h4 {
+  margin: 0 0 10px;
+  color: var(--branco-text);
+  font-size: 0.875rem;
+}
+
+.postprocess-summary {
+  margin-top: 14px;
+  border: 1px solid rgba(1, 111, 225, 0.3);
+  border-radius: 8px;
+  padding: 14px;
+  background: rgba(1, 111, 225, 0.08);
+}
+
+.postprocess-summary h4 {
+  margin: 0 0 8px;
+  color: var(--azul-primary);
+  font-size: 0.875rem;
+}
+
+.postprocess-summary p {
+  margin: 0 0 10px;
+  color: var(--branco-text);
+  font-size: 0.875rem;
+}
+
+.postprocess-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .detail-row {
@@ -142,4 +218,150 @@
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Barra de progresso ETL ──────────────────────────────────────── */
+
+.etl-progress-card {
+  background-color: var(--preto-elevated);
+  border: 1px solid var(--cinza-dark);
+  border-radius: 12px;
+  padding: 24px;
+  animation: slideUp 0.3s ease-out;
+}
+
+.etl-progress-card.has-error {
+  border-color: rgba(189, 4, 4, 0.4);
+}
+
+.etl-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.etl-progress-header h3 {
+  color: var(--branco-text);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.etl-progress-pct {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--azul-primary);
+  font-family: 'JetBrains Mono', monospace;
+  min-width: 48px;
+  text-align: right;
+}
+
+.etl-progress-track {
+  background-color: var(--preto-pure);
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+  margin-bottom: 18px;
+}
+
+.etl-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--azul-primary), var(--verde-accent));
+  transition: width 0.45s ease-out;
+}
+
+.etl-progress-fill.done {
+  background: var(--verde-accent);
+}
+
+.etl-progress-fill.error {
+  background: #bd0404;
+  transition: none;
+}
+
+.etl-progress-error-msg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #e05555;
+  background: rgba(189, 4, 4, 0.1);
+  border: 1px solid rgba(189, 4, 4, 0.3);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 0.875rem;
+}
+
+/* Lista de etapas */
+.etl-stages-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.etl-stage-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: var(--cinza-muted);
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.etl-stage-item.done {
+  color: var(--branco-text);
+}
+
+.etl-stage-item.active {
+  background: rgba(1, 111, 225, 0.08);
+  color: var(--azul-primary);
+}
+
+.etl-stage-item.errored {
+  background: rgba(189, 4, 4, 0.08);
+  color: #e05555;
+}
+
+.etl-stage-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.etl-stage-item.done .etl-stage-icon    { color: var(--verde-accent); }
+.etl-stage-item.active .etl-stage-icon  { color: var(--azul-primary); }
+.etl-stage-item.errored .etl-stage-icon { color: #e05555; }
+
+.etl-stage-label { flex: 1; }
+
+.etl-stage-badge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(1, 111, 225, 0.15);
+  color: var(--azul-primary);
+  border: 1px solid rgba(1, 111, 225, 0.3);
+}
+
+.etl-stage-badge.error {
+  background: rgba(189, 4, 4, 0.15);
+  color: #e05555;
+  border-color: rgba(189, 4, 4, 0.3);
+}
+
+@keyframes etl-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.etl-spin {
+  animation: etl-spin 1.1s linear infinite;
 }

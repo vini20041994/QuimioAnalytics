@@ -30,7 +30,8 @@ Objetivo:
 
 O que o script faz:
   1) Instala/verifica pre-requisitos de sistema (Python e Docker) no Linux apt
-  2) Executa orquestrador full-stack (venv, banco, schema/migrations, ETL, ranking de candidatos)
+  2) Sobe PostgreSQL, backend e frontend com docker compose
+  3) Executa orquestrador full-stack (venv, schema/migrations, ETL, ranking de candidatos)
 
 Opcoes:
   --db-pass VALOR            Senha do PostgreSQL (obrigatorio)

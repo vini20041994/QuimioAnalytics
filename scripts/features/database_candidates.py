@@ -32,11 +32,27 @@ def _extract_replicate_values(row):
 def _ensure_candidate_columns(cur):
     cur.execute(
         """
-        ALTER TABLE core.candidate_identification
-        ADD COLUMN IF NOT EXISTS is_tied BOOLEAN,
-        ADD COLUMN IF NOT EXISTS abundance_mean NUMERIC(20,8),
-        ADD COLUMN IF NOT EXISTS abundance_cv NUMERIC(12,6)
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'core'
+          AND table_name = 'candidate_identification'
+          AND column_name IN ('is_tied', 'abundance_mean', 'abundance_cv')
         """
+    )
+    existing = {row[0] for row in cur.fetchall()}
+    missing = []
+    if "is_tied" not in existing:
+        missing.append("ADD COLUMN is_tied BOOLEAN")
+    if "abundance_mean" not in existing:
+        missing.append("ADD COLUMN abundance_mean NUMERIC(20,8)")
+    if "abundance_cv" not in existing:
+        missing.append("ADD COLUMN abundance_cv NUMERIC(12,6)")
+
+    if not missing:
+        return
+
+    cur.execute(
+        f"ALTER TABLE core.candidate_identification {', '.join(missing)}"
     )
 
 
@@ -180,8 +196,10 @@ def _upsert_abundance_measurements(cur, batch_id, feature_id, row):
 
 
 def load_candidates_to_core(df_candidates, batch_name="BIOLOGICAL_RANKING"):
-    with psycopg2.connect(**get_db_params()) as conn:
+    with psycopg2.connect(application_name="quimio_ranking_loader", **get_db_params()) as conn:
         with conn.cursor() as cur:
+            # Evita ficar bloqueado indefinidamente em lock de DDL.
+            cur.execute("SET lock_timeout = '15s'")
             _ensure_candidate_columns(cur)
             batch_id = _get_or_create_batch(cur, batch_name)
 
@@ -290,6 +308,10 @@ def load_candidates_to_core(df_candidates, batch_name="BIOLOGICAL_RANKING"):
                             rank_global=rank_group,
                         )
                 inserted += 1
+
+                # Transacoes gigantes deixam o banco mais suscetivel a lock longo.
+                if inserted % 500 == 0:
+                    conn.commit()
 
             conn.commit()
 

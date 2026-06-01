@@ -6,6 +6,7 @@ applyTo:
   - "tests/**/*.py"
 ---
 # Regras de Backend
+> Consulte também as diretrizes gerais em .github/copilot-instructions.md para validação de sugestões, alternativas, simplicidade e documentação.
 
 - Valide entradas de forma explícita e falhe com mensagens de erro acionáveis.
 - Mantenha a orquestração enxuta; mova regras de negócio para services reutilizáveis.

@@ -23,7 +23,7 @@ Use ChemSpider quando você precisa:
 
 Instalação rápida:
 
-    source venv/bin/activate
+    source .venv/bin/activate
     pip install pandas pyarrow scrapy psycopg2-binary
 
 ## 4. Execução recomendada
@@ -109,7 +109,7 @@ Migração relacionada:
 
 2. Dependência Scrapy ausente
 
-    source venv/bin/activate
+    source .venv/bin/activate
     pip install scrapy
 
 3. Sem resultados para alguns compostos

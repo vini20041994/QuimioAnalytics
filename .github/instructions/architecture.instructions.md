@@ -3,6 +3,7 @@ description: "Use quando a tarefa envolver desenho de módulos, refatoração de
 name: "Regras de Arquitetura"
 ---
 # Regras de Arquitetura
+> Consulte também as diretrizes gerais em .github/copilot-instructions.md para validação de sugestões, alternativas, simplicidade e documentação.
 
 - Separe domínio, aplicação, infraestrutura, apresentação e scripts operacionais ao introduzir novo código.
 - Mantenha regras de negócio fora de controllers, rotas e componentes de UI.

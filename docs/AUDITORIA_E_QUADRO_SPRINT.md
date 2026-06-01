@@ -130,7 +130,7 @@ ESCADINHA BIOLÓGICA (CORRETO):
 | A2 | SQL espalhado (sem Repository Pattern) | `scripts/load/*.py`, `scripts/features/database_candidates.py` | Schema drift silencioso |
 | A3 | Credenciais podem vazar em logs | `scripts/config.py` | PGPASSWORD exposto no `ps aux` |
 | A4 | Porta 5432 exposta sem restrição | `docker-compose.yml` | Acesso não-autorizado ao banco |
-| A5 | Sem validação de path input | `scripts/run/run_etl_user_input.py` | Path traversal possível |
+| A5 | Runner interativo legado descontinuado | `scripts/run/run_etl_user_input.py` (removido) | Risco eliminado com remoção do entrypoint |
 
 ### 🟡 Severidade MÉDIA
 
@@ -539,7 +539,7 @@ Capacidade: **16 pontos**
 | ID | Tarefa | Arquivo(s) | Pts | Dono | Status | Critério de aceite |
 |---|---|---|---:|---|---|---|
 | S6-01 | Remover uso de `PGPASSWORD` em variável de ambiente | `scripts/config.py` | 3 | Backend | Todo | Conexão usa `.pgpass` ou `libpq service file`; `PGPASSWORD` não aparece em `ps aux` |
-| S6-02 | Validar path de arquivo de entrada (prevenir traversal) | `scripts/run/run_etl_user_input.py` | 3 | Backend | Todo | Caminho fora de `RAW_INPUTS_DIR` lança `ValueError` |
+| S6-02 | Descontinuar runner interativo legado (prevenir traversal) | `scripts/run/run_etl_user_input.py` | 3 | Backend | Done | Entry point removido do repositório |
 | S6-03 | Substituir serialização `to_json()` por `json.dumps` com `default=str` | `scripts/load/load_stg_transformed.py` | 2 | Backend | Todo | JSONB inserido é válido; encoding UTF-8 explícito |
 | S6-04 | Criar roles mínimos (read/write/etl) no schema | `database/schema_postgresql_mvp_entrega2.sql` | 5 | Dados | Todo | Script de extração não tem GRANT de INSERT; script de load não tem GRANT de SELECT em REF |
 | S6-05 | Configurar `127.0.0.1` como bind padrão da porta 5432 | `docker-compose.yml` | 3 | DevOps | Todo | `nmap` externo não enxerga a porta |

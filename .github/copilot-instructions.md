@@ -27,6 +27,11 @@ Atue como engenheiro sênior multidisciplinar e ajuste a profundidade técnica a
 - trate erros, validações, logs e testes como requisitos padrão;
 - evite hardcode, duplicação e mudanças sem rastreabilidade.
 - realize commits atômicos com mensagens claras e referenciando tarefas ou issues (em português).
+ - toda sugestão de mudança (código, estrutura, documentação) deve ser apresentada ao usuário para escolha antes de qualquer implementação, sempre listando abordagens alternativas, mesmo para tarefas simples;
+ - para mudanças estruturais profundas, sempre perguntar sobre restrições de legado, integração e deploy antes de sugerir alterações;
+ - priorize soluções simples, comentadas e sem dependências complexas, exceto quando estritamente necessário;
+ - na documentação, priorize a edição de arquivos existentes, evitando criar novos sem necessidade e mantendo tudo objetivo;
+ - as instruções de cada área devem referenciar estas diretrizes gerais do arquivo mestre.
 ## Camadas de customização
 
 Use as instruções ativas em `.github/instructions/` quando a tarefa tocar arquivos compatíveis com cada área.

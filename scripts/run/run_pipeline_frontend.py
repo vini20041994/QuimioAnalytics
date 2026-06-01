@@ -10,6 +10,7 @@ Fluxo padrao:
 """
 
 import argparse
+from functools import lru_cache
 import json
 import os
 import shutil
@@ -36,7 +37,7 @@ from scripts.config import (
 RUN_ETL_SCRIPT = RUN_SCRIPTS_DIR / "run_etl.py"
 RUN_EXTERNAL_SCRIPT = RUN_SCRIPTS_DIR / "run_etl_candidates_external.py"
 RANKING_SCRIPT = FEATURES_DIR / "analytics.py"
-VENV_DIR = PROJECT_ROOT / "venv"
+VENV_DIR = PROJECT_ROOT / ".venv"
 PYTHON_BIN = VENV_DIR / "bin" / "python3"
 PIP_BIN = VENV_DIR / "bin" / "pip"
 CONTAINER_NAME = "quimio_postgres"
@@ -71,13 +72,13 @@ def _log(msg: str) -> None:
 
 def _python_exec() -> str:
     candidates = [
+        Path(sys.executable),
         PYTHON_BIN,
-        PROJECT_ROOT / ".venv" / "bin" / "python3",
     ]
     for candidate in candidates:
         if candidate.exists():
             return str(candidate)
-    return str(Path(sys.executable))
+    return str(sys.executable)
 
 
 def _copy_if_needed(source: Path | None, destination: Path, overwrite: bool) -> Path:
@@ -152,8 +153,12 @@ def _run_psql_file(sql_file: Path, step_name: str) -> dict:
     if not sql_file.exists():
         raise PipelineError(f"Arquivo SQL nao encontrado: {sql_file}")
 
+    _, docker_base = _resolve_container_commands()
     cmd = [
-        "docker", "exec", "-i", CONTAINER_NAME,
+        *docker_base,
+        "exec",
+        "-i",
+        CONTAINER_NAME,
         "psql",
         "-U", os.environ.get("DB_USER", "quimio_user"),
         "-d", os.environ.get("DB_NAME", "quimioanalytics"),
@@ -221,9 +226,10 @@ def _ensure_venv(skip_deps: bool, continue_on_error: bool) -> list[dict]:
 
 
 def _start_container(continue_on_error: bool) -> dict:
+    compose_base, _ = _resolve_container_commands()
     return _run_step_allow_continue(
-        ["docker-compose", "up", "-d"],
-        "Subindo PostgreSQL com docker-compose",
+        [*compose_base, "up", "-d", "--build", "--force-recreate", "postgres", "backend", "frontend"],
+        "Subindo backend, frontend e PostgreSQL com docker compose",
         continue_on_error=continue_on_error,
     )
 
@@ -237,10 +243,11 @@ def _set_db_env(args: argparse.Namespace) -> None:
 
 
 def _wait_for_postgres(db_user: str, db_name: str) -> None:
+    _, docker_base = _resolve_container_commands()
     _log(f"Aguardando PostgreSQL ficar pronto no container {CONTAINER_NAME}...")
     for _ in range(60):
         result = subprocess.run(
-            ["docker", "exec", CONTAINER_NAME, "pg_isready", "-U", db_user, "-d", db_name],
+            [*docker_base, "exec", CONTAINER_NAME, "pg_isready", "-U", db_user, "-d", db_name],
             capture_output=True,
             text=True,
             check=False,
@@ -257,16 +264,17 @@ def _apply_db_init(skip_db_init: bool, continue_on_error: bool) -> list[dict]:
         _log("Pulando aplicacao de schema/migrations (--skip-db-init).")
         return []
 
+    _, docker_base = _resolve_container_commands()
     steps = [
         _run_step_allow_continue(
-            ["docker", "ps"],
+            [*docker_base, "ps"],
             "Verificacao basica do Docker",
             continue_on_error=continue_on_error,
         )
     ]
     steps.append(
         _run_step_allow_continue(
-            ["docker", "exec", CONTAINER_NAME, "true"],
+            [*docker_base, "exec", CONTAINER_NAME, "true"],
             "Verificando container PostgreSQL",
             continue_on_error=continue_on_error,
         )
@@ -285,15 +293,55 @@ def _run_psql_file_safe(sql_file: Path, step_name: str) -> dict:
     try:
         return _run_psql_file(sql_file, step_name)
     except PipelineError as exc:
+        _, docker_base = _resolve_container_commands()
         return {
             "step": step_name,
-            "command": ["docker", "exec", "-i", CONTAINER_NAME, "psql"],
+            "command": [*docker_base, "exec", "-i", CONTAINER_NAME, "psql"],
             "sql_file": str(sql_file),
             "returncode": 1,
             "duration_seconds": None,
             "stderr": str(exc),
             "continued_after_error": True,
         }
+
+
+@lru_cache(maxsize=1)
+def _resolve_container_commands() -> tuple[list[str], list[str]]:
+    def _ok(cmd: list[str]) -> bool:
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=str(PROJECT_ROOT),
+            )
+            return result.returncode == 0
+        except OSError:
+            return False
+
+    candidates = [
+        (["docker", "compose"], ["docker"], ["docker", "compose", "version"]),
+        (["docker-compose"], ["docker"], ["docker-compose", "version"]),
+        (
+            ["flatpak-spawn", "--host", "docker", "compose"],
+            ["flatpak-spawn", "--host", "docker"],
+            ["flatpak-spawn", "--host", "docker", "compose", "version"],
+        ),
+        (
+            ["flatpak-spawn", "--host", "docker-compose"],
+            ["flatpak-spawn", "--host", "docker"],
+            ["flatpak-spawn", "--host", "docker-compose", "version"],
+        ),
+    ]
+
+    for compose_base, docker_base, probe in candidates:
+        if _ok(probe):
+            return compose_base, docker_base
+
+    raise PipelineError(
+        "Nao foi possivel localizar Docker Compose. Instale docker compose (v2) ou docker-compose (v1)."
+    )
 
 
 def _parse_args() -> argparse.Namespace:
@@ -336,8 +384,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--sources",
         nargs="+",
-        choices=["pubchem", "chebi", "chemspider"],
-        default=["pubchem", "chebi", "chemspider"],
+        choices=["pubchem", "chebi", "chemspider", "classyfire"],
+        default=["pubchem", "chebi", "chemspider", "classyfire"],
         help="Fontes externas para --run-external.",
     )
 

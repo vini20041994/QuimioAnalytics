@@ -27,6 +27,7 @@ if __name__ == "__main__":
         extra_args.insert(idx + 2, "pubchem")
         extra_args.insert(idx + 3, "chebi")
         extra_args.insert(idx + 4, "chemspider")
+        extra_args.insert(idx + 5, "classyfire")
     
     sys.argv = [sys.argv[0], *extra_args]
     main()

@@ -1,0 +1,15 @@
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.mypy_cache
+ruff_cache
+runtime/logs
+runtime/backups
+data/raw_inputs
+data/staging
+Frontend/node_modules

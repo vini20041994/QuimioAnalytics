@@ -15,7 +15,7 @@ import argparse
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-VENV_PYTHON = PROJECT_ROOT / "venv" / "bin" / "python3"
+VENV_PYTHON = PROJECT_ROOT / ".venv" / "bin" / "python3"
 
 EXTRACT_SCRIPT   = PROJECT_ROOT / "scripts" / "extract" / "extract_stg_xlsx.py"
 TRANSFORM_SCRIPT = PROJECT_ROOT / "scripts" / "transform" / "transform_stg_xlsx.py"
@@ -23,7 +23,11 @@ LOAD_SCRIPT      = PROJECT_ROOT / "scripts" / "load" / "load_stg_transformed.py"
 
 
 def _python_exec():
-    return str(VENV_PYTHON if VENV_PYTHON.exists() else Path(sys.executable))
+    candidates = [Path(sys.executable), VENV_PYTHON]
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+    return str(sys.executable)
 
 
 def run_step(script_path, step_name, extra_args=None):

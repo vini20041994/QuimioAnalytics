@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import subprocess
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -23,6 +24,53 @@ class ConfigError(ValueError):
     """Erro de configuração de ambiente."""
 
 
+def _read_env_file_value(path: Path, key: str) -> str | None:
+    if not path.exists():
+        return None
+
+    for line in path.read_text(encoding="utf-8").splitlines():
+        content = line.strip()
+        if not content or content.startswith("#") or "=" not in content:
+            continue
+        k, v = content.split("=", 1)
+        if k.strip() == key:
+            value = v.strip().strip('"').strip("'")
+            if value:
+                return value
+    return None
+
+
+def _docker_postgres_password() -> str | None:
+    probes = [
+        ["docker", "inspect", "quimio_postgres", "--format", "{{range .Config.Env}}{{println .}}{{end}}"],
+        [
+            "flatpak-spawn",
+            "--host",
+            "docker",
+            "inspect",
+            "quimio_postgres",
+            "--format",
+            "{{range .Config.Env}}{{println .}}{{end}}",
+        ],
+    ]
+
+    for cmd in probes:
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        except OSError:
+            continue
+
+        if result.returncode != 0:
+            continue
+
+        for line in result.stdout.splitlines():
+            if line.startswith("POSTGRES_PASSWORD="):
+                value = line.split("=", 1)[1].strip()
+                if value:
+                    return value
+    return None
+
+
 def _required_env(name: str) -> str:
     value = os.getenv(name)
     if value is None or value.strip() == "":
@@ -30,14 +78,36 @@ def _required_env(name: str) -> str:
     return value
 
 
+def _resolve_db_password() -> str:
+    direct = os.getenv("DB_PASS")
+    if direct and direct.strip():
+        return direct.strip()
+
+    postgres_password = os.getenv("POSTGRES_PASSWORD")
+    if postgres_password and postgres_password.strip():
+        return postgres_password.strip()
+
+    env_file = PROJECT_ROOT / ".env"
+    for key in ("DB_PASS", "POSTGRES_PASSWORD"):
+        value = _read_env_file_value(env_file, key)
+        if value:
+            return value
+
+    inspected = _docker_postgres_password()
+    if inspected:
+        return inspected
+
+    raise ConfigError("Variavel obrigatoria ausente: DB_PASS")
+
+
 def get_db_params() -> dict:
-    """Retorna parametros de conexao PostgreSQL sem fallback sensivel."""
+    """Retorna parametros de conexao PostgreSQL com fallback para ambiente local compose."""
     return {
         "host": os.getenv("DB_HOST", "localhost"),
         "port": int(os.getenv("DB_PORT", "5432")),
         "dbname": os.getenv("DB_NAME", "quimioanalytics"),
         "user": os.getenv("DB_USER", "quimio_user"),
-        "password": _required_env("DB_PASS"),
+        "password": _resolve_db_password(),
     }
 
 

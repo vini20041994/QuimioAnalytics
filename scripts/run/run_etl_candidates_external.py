@@ -5,7 +5,7 @@ Orquestra consultas em bases externas a partir do arquivo de candidatos ranquead
 Fluxo:
 1. Le o arquivo de candidatos (parquet/csv/xlsx/txt).
 2. Prepara artefatos de entrada para cada base externa.
-3. Executa ETL PubChem, ChEBI e/ou ChemSpider.
+3. Executa ETL PubChem, ChEBI, ChemSpider e/ou ClassyFire.
 """
 
 import argparse
@@ -21,14 +21,16 @@ import pandas as pd
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 STAGING_DIR = PROJECT_ROOT / "data" / "staging"
 RUN_DIR = PROJECT_ROOT / "scripts" / "run"
-VENV_PYTHON = PROJECT_ROOT / "venv" / "bin" / "python3"
+VENV_PYTHON = PROJECT_ROOT / ".venv" / "bin" / "python3"
 
 DEFAULT_CANDIDATES_FILE = STAGING_DIR / "biological_ranking_candidates.parquet"
-DEFAULT_SOURCES = ["pubchem", "chebi", "classyfire"]
+DEFAULT_SOURCES = ["pubchem", "chebi", "chemspider", "classyfire"]
 
 
 def _python_exec() -> str:
-    return str(VENV_PYTHON if VENV_PYTHON.exists() else Path(sys.executable))
+    if VENV_PYTHON.exists():
+        return str(VENV_PYTHON)
+    return str(Path(sys.executable))
 
 
 def _resolve_candidates_input(arg_value: str | None) -> Path:
@@ -145,6 +147,17 @@ def _run(cmd: list[str], step_name: str) -> dict:
     return status
 
 
+def _to_json_payload(row: pd.Series) -> str:
+    normalized = {}
+    for key, value in row.to_dict().items():
+        if pd.isna(value):
+            continue
+        text = str(value).strip()
+        if text:
+            normalized[str(key)] = text
+    return json.dumps(normalized, ensure_ascii=True)
+
+
 def _build_enriched_snapshot(statuses: list[dict], queried_at: str) -> Path:
     rows = []
 
@@ -154,12 +167,16 @@ def _build_enriched_snapshot(statuses: list[dict], queried_at: str) -> Path:
         for _, row in df_pubchem.iterrows():
             rows.append(
                 {
+                    "match_name": row.get("original_identifier") or row.get("IUPACName") or row.get("Title"),
+                    "match_inchikey": row.get("InChIKey") or row.get("inchikey"),
                     "standardized_name": row.get("IUPACName") or row.get("Title") or row.get("original_identifier"),
+                    "external_id": row.get("pubchem_cid"),
                     "description": row.get("pubchem_description"),
                     "chemical_class": None,
                     "chemical_subclass": None,
                     "enrichment_source": "PubChem",
                     "enrichment_queried_at": queried_at,
+                    "source_payload_json": _to_json_payload(row),
                 }
             )
 
@@ -169,12 +186,35 @@ def _build_enriched_snapshot(statuses: list[dict], queried_at: str) -> Path:
         for _, row in df_chebi.iterrows():
             rows.append(
                 {
+                    "match_name": row.get("compound_name") or row.get("chebi_name"),
+                    "match_inchikey": row.get("inchikey") or row.get("InChIKey"),
                     "standardized_name": row.get("chebi_name") or row.get("compound_name"),
+                    "external_id": row.get("chebi_id"),
                     "description": row.get("definition"),
                     "chemical_class": row.get("chemical_role_text"),
                     "chemical_subclass": None,
                     "enrichment_source": "ChEBI",
                     "enrichment_queried_at": queried_at,
+                    "source_payload_json": _to_json_payload(row),
+                }
+            )
+
+    chemspider_path = STAGING_DIR / "chemspider_raw.parquet"
+    if chemspider_path.exists():
+        df_chemspider = pd.read_parquet(chemspider_path)
+        for _, row in df_chemspider.iterrows():
+            rows.append(
+                {
+                    "match_name": row.get("Search_Description") or row.get("Description") or row.get("Compound_Name"),
+                    "match_inchikey": row.get("InChIKey") or row.get("inchikey"),
+                    "standardized_name": row.get("Description") or row.get("Search_Description") or row.get("InChIKey"),
+                    "external_id": row.get("ChemSpider_ID") or row.get("chemspider_id"),
+                    "description": row.get("Description") or row.get("Search_Description"),
+                    "chemical_class": row.get("Chemical_Class"),
+                    "chemical_subclass": row.get("Chemical_Subclass"),
+                    "enrichment_source": "ChemSpider",
+                    "enrichment_queried_at": queried_at,
+                    "source_payload_json": _to_json_payload(row),
                 }
             )
 
@@ -184,27 +224,38 @@ def _build_enriched_snapshot(statuses: list[dict], queried_at: str) -> Path:
         for _, row in df_classyfire.iterrows():
             rows.append(
                 {
+                    "match_name": None,
+                    "match_inchikey": row.get("inchikey"),
                     "standardized_name": row.get("inchikey"),
+                    "external_id": row.get("ClassyFire_ID"),
                     "description": None,
                     "chemical_class": row.get("Chemical_Class"),
                     "chemical_subclass": row.get("Chemical_Subclass"),
                     "enrichment_source": "ClassyFire",
                     "enrichment_queried_at": queried_at,
+                    "source_payload_json": _to_json_payload(row),
                 }
             )
 
     snapshot = pd.DataFrame(
         rows,
         columns=[
+            "match_name",
+            "match_inchikey",
             "standardized_name",
+            "external_id",
             "description",
             "chemical_class",
             "chemical_subclass",
             "enrichment_source",
             "enrichment_queried_at",
+            "source_payload_json",
         ],
     )
-    snapshot = snapshot.dropna(how="all", subset=["standardized_name", "description", "chemical_class", "chemical_subclass"])
+    snapshot = snapshot.dropna(
+        how="all",
+        subset=["match_name", "match_inchikey", "standardized_name", "description", "chemical_class", "chemical_subclass"],
+    )
 
     output_path = STAGING_DIR / "external_enrichment_snapshot.parquet"
     snapshot.to_parquet(output_path, index=False)
@@ -290,7 +341,7 @@ def main() -> None:
 
     if "classyfire" in args.sources:
         statuses.append(_run(
-            [py, str(PROJECT_ROOT / "scripts" / "extract" / "extract_classyfire.py"), str(classyfire_input)],
+            [py, str(RUN_DIR / "run_etl_classyfire.py"), str(classyfire_input)],
             "ETL ClassyFire",
         ))
 

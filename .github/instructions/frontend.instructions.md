@@ -7,6 +7,7 @@ applyTo:
   - "fron_test/src/**/*.css"
 ---
 # Regras de Frontend
+> Consulte também as diretrizes gerais em .github/copilot-instructions.md para validação de sugestões, alternativas, simplicidade e documentação.
 
 - Construa interfaces analíticas com hierarquia clara, não com estética de landing page.
 - Trate estados de carregamento, vazio e erro como comportamento de primeira classe.

@@ -7,7 +7,7 @@ function Navbar() {
   
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: BarChart3 },
-    { path: '/ranking', label: 'Top 5 Ranking', icon: TrendingUp },
+    { path: '/ranking', label: 'Classificacao de Compostos', icon: TrendingUp },
     { path: '/upload', label: 'Upload', icon: Upload },
     { path: '/reference', label: 'Referências', icon: Database },
   ]
@@ -19,7 +19,7 @@ function Navbar() {
         {/* Branding */}
         <div className="navbar-brand">
           <div className="brand-logo">
-           <img src="./src/public/logo.png" alt="logo" />
+           <img src="/src/public/logo.png" alt="logo" />
           </div>
           <div className="brand-text">
               <h1 className="brand-title">

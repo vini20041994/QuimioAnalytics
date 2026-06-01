@@ -24,7 +24,7 @@ Use PubChem quando você precisa:
 
 Instalação rápida:
 
-    source venv/bin/activate
+    source .venv/bin/activate
     pip install pandas pyarrow requests psycopg2-binary openpyxl
 
 ## 4. Execução recomendada
@@ -110,7 +110,7 @@ Configuração operacional padrão:
 
 1. Dependências ausentes
 
-    source venv/bin/activate
+    source .venv/bin/activate
     pip install pandas pyarrow requests psycopg2-binary openpyxl
 
 2. Banco indisponível
